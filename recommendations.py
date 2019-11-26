@@ -279,16 +279,18 @@ print(observation_1['user'])
 
 print('_______________________________________')
 
-from recsim.agents.full_slate_q_agent import FullSlateQAgent
-
-def create_agent(sess, environment, eval_mode, summary_writer=None):
-  return StaticAgent(environment.observation_space, environment.action_space)
-
-
-env = recsim_gym.RecSimGymEnv(ltsenv, clicked_engagement_reward)
-observation = lts_gym_env.reset()
-
-print(env.observation_space)
-print(env.action_space)
-
-slate = cluster_bandit.begin_episode(observation0)
+# =============================================================================
+# from recsim.agents.full_slate_q_agent import FullSlateQAgent
+# 
+# def create_agent(sess, environment, eval_mode, summary_writer=None):
+#   return StaticAgent(environment.observation_space, environment.action_space)
+# 
+# 
+# env = recsim_gym.RecSimGymEnv(ltsenv, clicked_engagement_reward)
+# observation = lts_gym_env.reset()
+# 
+# print(env.observation_space)
+# print(env.action_space)
+# 
+# slate = cluster_bandit.begin_episode(observation0)
+# =============================================================================
