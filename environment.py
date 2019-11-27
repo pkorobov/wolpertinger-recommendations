@@ -3,11 +3,8 @@
 
 import numpy as np
 from gym import spaces
-import matplotlib.pyplot as plt
-from scipy import stats
 from recsim import document
 from recsim import user
-from recsim.choice_model import MultinomialLogitChoiceModel
 from recsim.simulator import environment
 from recsim.simulator import recsim_gym
 
@@ -15,27 +12,11 @@ DOC_NUM = 3
 np.random.seed(1)
 W = np.random.uniform(0, 1, size=(DOC_NUM, DOC_NUM))
 
-choices_history = dict()
-click_history = dict()
-
-
 def generate_W():
     W = np.random.uniform(0, 1, size=(DOC_NUM, DOC_NUM))
-    W = W * (np.ones((DOC_NUM, DOC_NUM)) - np.eye(DOC_NUM, DOC_NUM))
-    W = W / W.sum(axis=1).reshape(-1, 1)
     return W
 
 W = generate_W()
-W = np.array([[0., .8, .01, .09, .1],
-              [.1, .8, 0., 0., .1],
-              [0., .7, 0.1, 0.1, 0.1],
-              [0., .9, .05, 0., .05],
-              [0., 1., 0., 0., 0.]])
-
-W = np.array([[.0, 1., .0],
-              [.0, 1., 0.0],
-              [0.0, 1., 0.0],])
-
 W = np.array([[.1, .8, .1],
               [.05, .9, 0.05],
               [0.025, .95, 0.025],])
@@ -136,9 +117,9 @@ def user_init(self,
           self).__init__(LTSResponse, LTSStaticUserSampler(LTSUserState, seed=seed, doc_num=DOC_NUM), slate_size)
     self.choice_model = UserChoiceModel()
 
-from recsim.choice_model import NormalizableChoiceModel, softmax
+from recsim.choice_model import NormalizableChoiceModel
 
-class UserChoiceModel(NormalizableChoiceModel):  # pytype: disable=ignored-metaclass
+class UserChoiceModel(NormalizableChoiceModel):
     def __init__(self):
         super(UserChoiceModel, self).__init__()
 
@@ -156,16 +137,10 @@ def simulate_response(self, slate_documents):
     # List of empty responses
     responses = [self._response_model_ctor() for _ in slate_documents]
 
-    # Get click from of choice model.
+    # Get answer from of choice model.
     self.choice_model.score_documents(self._user_state, [doc.create_observation() for doc in slate_documents])
     scores = self.choice_model.scores
     selected_index = self.choice_model.choose_item()
-
-    # Populate clicked item.
-    if selected_index in click_history:
-        click_history[selected_index] += 1
-    else:
-        click_history[selected_index] = 1
 
     if selected_index is None:
         return responses
@@ -186,8 +161,8 @@ def update_state(self, slate_documents, responses):
             self._user_state.active_session = np.random.binomial(1, 0.8)
 
 def is_terminal(self):
-      """Returns a boolean indicating if the session is over."""
-      return self._user_state.active_session
+    """Returns a boolean indicating if the session is over."""
+    return self._user_state.active_session
 
 
 LTSUserModel = type("LTSUserModel", (user.AbstractUserModel,),
@@ -197,25 +172,16 @@ LTSUserModel = type("LTSUserModel", (user.AbstractUserModel,),
                      "simulate_response": simulate_response,
                      "_generate_response": generate_response})
 
-
-ltsenv = environment.Environment(
-           LTSUserModel(slate_size, doc_num=DOC_NUM),
-           LTSDocumentSampler(doc_num=DOC_NUM),
-           num_candidates,
-           slate_size,
-           resample_documents=True)
-
-def clicked_reward(responses): # не вызывается
-  reward = 0.0
-  for response in responses:
-    if response.accept:
-      reward += 1
-  return reward
+def clicked_reward(responses):
+    reward = 0.0
+    for response in responses:
+        if response.accept:
+            reward += 1
+    return reward
 
 np.random.seed(101)
 
 from recsim.agent import AbstractEpisodicRecommenderAgent
-from recsim.agents.full_slate_q_agent import FullSlateQAgent
 from recsim.agents.full_slate_q_agent import FullSlateQAgent
 from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import runner_lib
@@ -249,8 +215,6 @@ env = recsim_gym.RecSimGymEnv(ltsenv, clicked_reward)
 tmp_base_dir = 'tmp'
 episode_log_file_train = 'episodes_train'
 
-import numpy as np
-from recsim.simulator import runner_lib
 import subprocess
 subprocess.run(["rm", "-rf", "tmp"])
 subprocess.run(["mkdir", "tmp"])
