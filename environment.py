@@ -10,10 +10,16 @@ np.random.seed(SEED)
 W = np.array([[.100, .800],
               [.050, .900]])
 
+# W = np.array([[.010, .700, .800],
+#               [.020, .850, .900],
+#               [.050, .800, .950]])
+
+DOC_NUM = W.shape[0]
+
 P_EXIT_ACCEPTED = 0.1
 P_EXIT_NOT_ACCEPTED = 0.2
 
-DOC_NUM = 2
+
 
 
 class Document(document.AbstractDocument):

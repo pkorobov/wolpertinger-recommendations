@@ -24,7 +24,8 @@ class Agent:
         if isinstance(env.observation_space, Box):
             self.observation_space_size = env.observation_space.shape[0]
         else:
-            self.observation_space_size = env.observation_space.n
+            self.observation_space_size = 2
+            # self.observation_space_size = env.observation_space.n
 
         # checking action space
         if isinstance(env.action_space, Box):
@@ -36,7 +37,8 @@ class Agent:
             self.action_space_size = 1
             self.continious_action_space = False
             self.low = np.array([0])
-            self.high = np.array([env.action_space.n])
+            self.high = np.array([2])
+            # self.high = np.array([env.action_space.n])
 
     def act(self, state):
         pass
@@ -53,6 +55,8 @@ class Agent:
         size_of_element = self.observation_space_size if is_state else self.action_space_size
 
         res = np.array(array)
+
+        # нужно сделать ohe, чтобы не ломалось (сделано!)
         res.shape = (number_of_elements, size_of_element)
         return res
 

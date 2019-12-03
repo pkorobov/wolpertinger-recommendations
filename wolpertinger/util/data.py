@@ -176,9 +176,6 @@ class Data:
                 self.merge(temp_data)
                 os.remove(file_name)
 
-        print(self.PATH)
-        print(path)
-        
         final_file_name = self.PATH + path + self.get_file_name() + '.json'
         if final_save:
             print('Data: Ziping', final_file_name)
@@ -193,53 +190,49 @@ class Data:
     def temp_save(self):
         if self.data_added == 0:
             return
-        
-        path = 'temp/' + str(self.temp_saves)
-        if not os.path.exists(self.PATH + path):
-            os.makedirs(self.PATH + path)
-        self.save(path=path, final_save=False)
+        self.save(path='temp/' + str(self.temp_saves), final_save=False)
         self.temp_saves += 1
         self.data['simulation']['episodes'] = []  # reset
         self.data_added = 0
 
 
-# if __name__ == '__main__':
-#
-#     import numpy as np
-#     import random
-#
-#     # d = load('results/obj/saved/data_10001_Wolp3_InvertedPendulum-v1#0.json.zip')
-#     # # d = load('results/obj/saved/data_10000_agent_name4_exp_name#0.json.zip')
-#     # print(d.get_file_name())
-#     # d = load('results/obj/data_10000_agent_name4_exp_name#0.json.zip')
-#     d = Data()
-#     d.set_agent('agent_name', 1000, 10, 4)
-#     d.set_experiment('exp_name', [-2, -3], [3, 2], 10000)
-#
-#     # d.print_data()
-#     #
-#     for i in range(10):
-#         d.set_state([i, i, i, i])
-#         d.set_action([i, i])
-#         d.set_actors_action([i, i])
-#         d.set_ndn_action([i, i])
-#         d.set_reward(i)
-#         if i % 3 == 0:
-#             d.finish_and_store_episode()
-#             d.temp_save()
-#             # exit()
-#
-#     # for i in range(30, 400):
-#     #     d.set_state([i, i, i, i])
-#     #     d.set_action([i, i])
-#     #     d.set_actors_action([i, i])
-#     #     d.set_ndn_action([i, i])
-#     #     d.set_reward(random.randint(0, 10))
-#     #     if i % 2 == 0:
-#     #         d.finish_and_store_episode()
-#     #         d.temp_save()
-#     # #
-#     d.temp_save()
-#     d.temp_save()
-#     d.save()
-#    d.print_data()
+if __name__ == '__main__':
+
+    import numpy as np
+    import random
+
+    # d = load('results/obj/saved/data_10001_Wolp3_InvertedPendulum-v1#0.json.zip')
+    # # d = load('results/obj/saved/data_10000_agent_name4_exp_name#0.json.zip')
+    # print(d.get_file_name())
+    # d = load('results/obj/data_10000_agent_name4_exp_name#0.json.zip')
+    d = Data()
+    d.set_agent('agent_name', 1000, 10, 4)
+    d.set_experiment('exp_name', [-2, -3], [3, 2], 10000)
+
+    # d.print_data()
+    #
+    for i in range(10):
+        d.set_state([i, i, i, i])
+        d.set_action([i, i])
+        d.set_actors_action([i, i])
+        d.set_ndn_action([i, i])
+        d.set_reward(i)
+        if i % 3 == 0:
+            d.finish_and_store_episode()
+            d.temp_save()
+            # exit()
+
+    # for i in range(30, 400):
+    #     d.set_state([i, i, i, i])
+    #     d.set_action([i, i])
+    #     d.set_actors_action([i, i])
+    #     d.set_ndn_action([i, i])
+    #     d.set_reward(random.randint(0, 10))
+    #     if i % 2 == 0:
+    #         d.finish_and_store_episode()
+    #         d.temp_save()
+    # #
+    d.temp_save()
+    d.temp_save()
+    d.save()
+    d.print_data()
