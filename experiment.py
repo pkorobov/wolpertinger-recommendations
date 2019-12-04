@@ -13,7 +13,7 @@ def create_random_agent(sess, environment, eval_mode, summary_writer=None):
 
 
 def create_good_agent(sess, environment, eval_mode, summary_writer=None):
-    return StaticAgent(environment.action_space, 1)
+    return StaticAgent(environment.action_space, 6)
 
 
 def create_bad_agent(sess, environment, eval_mode, summary_writer=None):
@@ -28,14 +28,18 @@ def create_dqn_agent(sess, environment, eval_mode, summary_writer=None):
     }
     return full_slate_q_agent.FullSlateQAgent(sess, **kwargs)
 
-def create_wolp_agent(sess, environment, eval_mode, summary_writer=None):
-    kwargs = {
-        'observation_space': environment.observation_space,
-        'action_space': environment.action_space,
-        'summary_writer': summary_writer,
-        'eval_mode': eval_mode,
-    }
-    return WolpAgent(sess, **kwargs)
+
+def create_wolp_agent_with_ratio(k_ratio=0.1):
+    def create_wolp_agent(sess, environment, eval_mode, summary_writer=None):
+        kwargs = {
+            'observation_space': environment.observation_space,
+            'action_space': environment.action_space,
+            'summary_writer': summary_writer,
+            'eval_mode': eval_mode,
+            'k_ratio': k_ratio
+        }
+        return WolpAgent(sess, environment, **kwargs)
+    return create_wolp_agent
 
 def cleanup_dir(dir_path):
     if os.path.exists(dir_path) and os.path.isdir(dir_path):
@@ -57,12 +61,16 @@ def main():
         clicked_reward
     )
 
-    agents = [('wolpertinger', create_wolp_agent),
-              # ("random", create_random_agent),
-              # ("good", create_good_agent),
-              # ("bad", create_bad_agent),
-              # ("DQN", create_dqn_agent)
-             ]
+    agents = [
+               ("random", create_random_agent),
+               ("good", create_good_agent),
+               ("bad", create_bad_agent),
+               ('wolpertinger_0.1', create_wolp_agent_with_ratio(0.1)),
+               # ('wolpertinger_0.25', create_wolp_agent_with_ratio(0.25)),
+               # ('wolpertinger_0.5', create_wolp_agent_with_ratio(0.5)),
+               # ('wolpertinger_1.0', create_wolp_agent_with_ratio(1)),
+               ("DQN", create_dqn_agent),
+    ]
     for agent_name, create_agent_fun in agents:
         env.reset()
 
@@ -70,7 +78,7 @@ def main():
             base_dir=base_dir + agent_name,
             create_agent_fn=create_agent_fun,
             env=env,
-            max_training_steps=5000,
+            max_training_steps=500,
             num_iterations=100
         )
         runner.run_experiment()

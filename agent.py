@@ -24,8 +24,8 @@ class StaticAgent(AbstractEpisodicRecommenderAgent):
 class WolpAgent(AbstractEpisodicRecommenderAgent):
 
     def __init__(self,
-                 env,
                  sess,
+                 env,
                  observation_space,
                  action_space,
                  optimizer_name='',
@@ -40,6 +40,7 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
         self._num_candidates = int(action_space.nvec[0])
         num_actions = self._num_candidates
 
+        self._observation_space = env.observation_space
         self._action_space = spaces.Discrete(num_actions)
         self.k_nearest_neighbors = max(1, int(num_actions * k_ratio))
 
@@ -50,24 +51,26 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
 
         self.current_episode = {}
 
-    # def begin_episode(self, observation=None):
-    #     pass
-
     def step(self, reward, observation):
-        if self.current_episode is not None:
-            self.current_episode["reward"] = reward
-            self.agent.observe(self.current_episode)
+        try:
+            self.prev_obs
+        except AttributeError:
+            self.prev_obs = np.array([0] * self._observation_space.spaces['user'].n)
+            self.prev_obs[-1] = 1
 
-        action = self.agent.act(observation)
+        user_space = self._observation_space.spaces['user']
+        user_ohe = spaces.flatten(user_space, observation['user'])
+        action = self.agent.act(user_ohe)
 
-        self.current_episode.clear()
         self.current_episode = {
-            'obs': observation,
+            'obs': self.prev_obs,
             'action': action,
             'reward': reward,
-            'obs2': observation,
-            # 'done': done,s
-            # 't': t
+            'obs2': user_ohe,
+            'done': 0,
         }
+
+        self.agent.observe(self.current_episode)
+        self.prev_obs = user_ohe
 
         return action

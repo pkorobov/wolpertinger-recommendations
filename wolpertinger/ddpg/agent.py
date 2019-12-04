@@ -24,8 +24,7 @@ class Agent:
         if isinstance(env.observation_space, Box):
             self.observation_space_size = env.observation_space.shape[0]
         else:
-            self.observation_space_size = 2
-            # self.observation_space_size = env.observation_space.n
+            self.observation_space_size = env.observation_space.spaces['user'].n
 
         # checking action space
         if isinstance(env.action_space, Box):
