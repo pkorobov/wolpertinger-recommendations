@@ -58,6 +58,8 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
         # self.data.set_experiment(experiment, agent.low.tolist(), agent.high.tolist(), episodes)
         self.agent.add_data_fetch(self.data)
 
+    # def begin_episode(self, observation=None):
+    #     pass
 
     def step(self, reward, observation):
 
@@ -66,19 +68,29 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
         doc_space = self._observation_space.spaces['doc']
 
         user_ohe = spaces.flatten(user_space, observation['user'])
-
         action = self.agent.act(user_ohe)
 
-
-        data.set_action(action.tolist())
-        data.set_state(observation.tolist())
-
         prev_observation = observation
+
+        # нет никакого env.step, как получить следующий экшн?
+        # как в DQN получаются и старые и новые обсервейшны
         observation, reward, done, info = env.step(action[0] if len(action) == 1 else action)
 
-        data.set_reward(reward)
+        episode = {'obs': prev_observation,
+                   'action': action,
+                   'reward': reward,
+                   'obs2': observation,
+                   'done': done,
+                   't': t}
 
         agent.observe(episode)
+
+        return action
+        # data.set_action(action.tolist())
+        # data.set_state(observation.tolist())
+#        data.set_reward(reward)
+
+ #       agent.observe(episode)
 
 
 
