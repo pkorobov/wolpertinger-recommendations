@@ -24,6 +24,7 @@ class StaticAgent(AbstractEpisodicRecommenderAgent):
 class WolpAgent(AbstractEpisodicRecommenderAgent):
 
     def __init__(self,
+                 env,
                  sess,
                  observation_space,
                  action_space,
@@ -36,20 +37,9 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
 
         AbstractEpisodicRecommenderAgent.__init__(self, action_space)
 
-        env = recsim_gym.RecSimGymEnv(
-            environment.Environment(UserModel(), DocumentSampler(), DOC_NUM, 1, resample_documents=False),
-            clicked_reward
-        )
-
-        print('------------------------')
-        print(env.observation_space)
-        print(env.action_space)
-        print('------------------------')
-
         self._num_candidates = int(action_space.nvec[0])
         num_actions = self._num_candidates
 
-        self._observation_space = env.observation_space
         self._action_space = spaces.Discrete(num_actions)
         self.k_nearest_neighbors = max(1, int(num_actions * k_ratio))
 
@@ -58,39 +48,26 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
         # self.data.set_experiment(experiment, agent.low.tolist(), agent.high.tolist(), episodes)
         self.agent.add_data_fetch(self.data)
 
+        self.current_episode = {}
+
     # def begin_episode(self, observation=None):
     #     pass
 
     def step(self, reward, observation):
+        if self.current_episode is not None:
+            self.current_episode["reward"] = reward
+            self.agent.observe(self.current_episode)
 
-        doc_obs = observation['doc']
-        user_space = self._observation_space.spaces['user']
-        doc_space = self._observation_space.spaces['doc']
+        action = self.agent.act(observation)
 
-        user_ohe = spaces.flatten(user_space, observation['user'])
-        action = self.agent.act(user_ohe)
-
-        prev_observation = observation
-
-        # нет никакого env.step, как получить следующий экшн?
-        # как в DQN получаются и старые и новые обсервейшны
-        observation, reward, done, info = env.step(action[0] if len(action) == 1 else action)
-
-        episode = {'obs': prev_observation,
-                   'action': action,
-                   'reward': reward,
-                   'obs2': observation,
-                   'done': done,
-                   't': t}
-
-        agent.observe(episode)
+        self.current_episode.clear()
+        self.current_episode = {
+            'obs': observation,
+            'action': action,
+            'reward': reward,
+            'obs2': observation,
+            # 'done': done,s
+            # 't': t
+        }
 
         return action
-        # data.set_action(action.tolist())
-        # data.set_state(observation.tolist())
-#        data.set_reward(reward)
-
- #       agent.observe(episode)
-
-
-
