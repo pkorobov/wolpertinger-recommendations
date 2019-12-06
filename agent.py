@@ -1,16 +1,9 @@
 from recsim.agent import AbstractEpisodicRecommenderAgent
-from gym import spaces
 
-import numpy as np
-
-from wolpertinger.wolp_agent import *
-from wolpertinger.ddpg.agent import DDPGAgent
-from wolpertinger.util import data as util_data
-from wolpertinger.util.timer import Timer
-
-
-from recsim.simulator import recsim_gym, environment, runner_lib
 from environment import *
+from wolpertinger.util import data as util_data
+from wolpertinger.wolp_agent import *
+
 
 class StaticAgent(AbstractEpisodicRecommenderAgent):
 
@@ -21,56 +14,59 @@ class StaticAgent(AbstractEpisodicRecommenderAgent):
     def step(self, reward, observation):
         return [self.recommended_doc_id]
 
+
 class WolpAgent(AbstractEpisodicRecommenderAgent):
 
-    def __init__(self,
-                 sess,
-                 env,
-                 observation_space,
-                 action_space,
-                 optimizer_name='',
-                 eval_mode=False,
-                 k_ratio=0.1,
-                 episodes=2500,
-                 max_actions=1000,
-                 **kwargs):
-
+    def __init__(self, env, action_space, k_ratio=0.1, max_actions=1000):
         AbstractEpisodicRecommenderAgent.__init__(self, action_space)
 
-        self._num_candidates = int(action_space.nvec[0])
-        num_actions = self._num_candidates
-
         self._observation_space = env.observation_space
-        self._action_space = spaces.Discrete(num_actions)
-        self.k_nearest_neighbors = max(1, int(num_actions * k_ratio))
 
-        self.data = util_data.Data()
-        self.agent = WolpertingerAgent(env, max_actions=max_actions, k_ratio=self.k_nearest_neighbors)
-        # self.data.set_experiment(experiment, agent.low.tolist(), agent.high.tolist(), episodes)
-        self.agent.add_data_fetch(self.data)
+        num_actions = int(action_space.nvec[0])
+        k_nearest_neighbors = max(1, int(num_actions * k_ratio))
+        self.agent = WolpertingerAgent(env, max_actions=max_actions, k_ratio=k_nearest_neighbors)
+        self.agent.add_data_fetch(util_data.Data())
 
+        self.t = 0
         self.current_episode = {}
 
+    def begin_episode(self, observation=None):
+        self.t = 0
+        state = self._extract_state(observation)
+        return self._act(state)
+
     def step(self, reward, observation):
-        try:
-            self.prev_obs
-        except AttributeError:
-            self.prev_obs = np.array([0] * self._observation_space.spaces['user'].n)
-            self.prev_obs[-1] = 1
+        state = self._extract_state(observation)
+        self._observe(state, reward, 0)
+        return self._act(state)
 
-        user_space = self._observation_space.spaces['user']
-        user_ohe = spaces.flatten(user_space, observation['user'])
-        action = self.agent.act(user_ohe)
+    def end_episode(self, reward, observation=None):
+        state = self._extract_state(observation)
+        self._observe(state, reward, 1)
 
+    def _act(self, state):
+        action = self.agent.act(state)
         self.current_episode = {
-            'obs': self.prev_obs,
-            'action': action,
-            'reward': reward,
-            'obs2': user_ohe,
-            'done': 0,
+            "obs": state,
+            "action": action,
+            "t": self.t
         }
+        self.t += 1
+        return action
+
+    def _observe(self, next_state, reward, done):
+        if not self.current_episode:
+            raise ValueError("Current episode is expected to be non-empty")
+
+        self.current_episode.update({
+            "obs2": next_state,
+            "reward": reward,
+            "done": done
+        })
 
         self.agent.observe(self.current_episode)
-        self.prev_obs = user_ohe
+        self.current_episode = {}
 
-        return action
+    def _extract_state(self, observation):
+        user_space = self._observation_space.spaces['user']
+        return spaces.flatten(user_space, observation['user'])
