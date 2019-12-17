@@ -33,10 +33,10 @@ class Agent:
             self.low = env.action_space.low
             self.high = env.action_space.high
         else:  # dont need in this implementation
-            self.action_space_size = 1
+            self.action_space_size = env.action_space.nvec[0]
             self.continious_action_space = False
-            self.low = np.array([0])
-            self.high = np.array([2])
+            self.low = np.array([0] * self.action_space_size)
+            self.high = np.array([1] * self.action_space_size)
             # self.high = np.array([env.action_space.n])
 
     def act(self, state):

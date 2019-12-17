@@ -23,8 +23,7 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
         self._observation_space = env.observation_space
 
         num_actions = int(action_space.nvec[0])
-        k_nearest_neighbors = max(1, int(num_actions * k_ratio))
-        self.agent = WolpertingerAgent(env, max_actions=max_actions, k_ratio=k_nearest_neighbors)
+        self.agent = WolpertingerAgent(env, max_actions=max_actions, k_ratio=k_ratio)
         self.agent.add_data_fetch(util_data.Data())
 
         self.t = 0
@@ -52,7 +51,7 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
             "t": self.t
         }
         self.t += 1
-        return action
+        return np.where(action)[0]
 
     def _observe(self, next_state, reward, done):
         if not self.current_episode:

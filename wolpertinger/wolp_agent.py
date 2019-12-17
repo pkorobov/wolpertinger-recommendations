@@ -16,7 +16,7 @@ class WolpertingerAgent(agent.DDPGAgent):
             max_actions = int(env.action_space.nvec[0])
             # action_space - MultiDiscrete, nvec - tuple с числом действий в каждом измерении
             # видимо, Multi появляется из-за слейтов, сейчас слейт один, так что берем первый инт
-            self.action_space = action_space.Discrete_space(max_actions)
+            self.action_space = action_space.OneHotEncodingSpace(max_actions)
 
         self.k_nearest_neighbors = max(1, int(max_actions * k_ratio))
 
