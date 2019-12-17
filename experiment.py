@@ -59,9 +59,9 @@ def main():
     )
 
     agents = [
-               ("random", create_random_agent),
-               ("good", create_good_agent),
-               ("bad", create_bad_agent),
+               # ("random", create_random_agent),
+               # ("good", create_good_agent),
+               # ("bad", create_bad_agent),
                ('wolpertinger_0.1', create_wolp_agent_with_ratio(0.1)),
                ('wolpertinger_0.25', create_wolp_agent_with_ratio(0.25)),
                ('wolpertinger_0.5', create_wolp_agent_with_ratio(0.5)),
