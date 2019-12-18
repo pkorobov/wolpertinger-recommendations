@@ -5,6 +5,7 @@ from wolpertinger.wolp_agent import *
 
 from stable_baselines.ddpg import MlpPolicy
 
+
 class StaticAgent(AbstractEpisodicRecommenderAgent):
 
     def __init__(self, action_space, recommended_doc_id):
