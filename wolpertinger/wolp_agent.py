@@ -37,27 +37,27 @@ class WolpertingerAgent(DDPG):
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False):
 
-            if isinstance(env.action_space, gym.spaces.Discrete):
-                n = env.action_space.n
-                env_ = copy.deepcopy(env)
-                env_.action_space = gym.spaces.Box(np.array([-1.] * n), np.array([1.] * n))
-            elif isinstance(env.action_space, gym.spaces.MultiDiscrete) and len(env.action_space.nvec.shape) == 1:
-                n = env.action_space.nvec[0]
-                # in current SB version action space must be symmetric
-                dummy_env = DummyEnv(action_space=gym.spaces.Box(np.array([-1.] * n), np.array([1.] * n)),
-                                     observation_space=gym.spaces.Box(np.array([0.] * n), np.array([1.] * n)))
-            else:
-                raise Exception("Action space must be Discrete or one-dimensional MultiDiscrete")
+        if isinstance(env.action_space, gym.spaces.Discrete):
+            n = env.action_space.n
+            env_ = copy.deepcopy(env)
+            env_.action_space = gym.spaces.Box(np.array([-1.] * n), np.array([1.] * n))
+        elif isinstance(env.action_space, gym.spaces.MultiDiscrete) and len(env.action_space.nvec.shape) == 1:
+            n = env.action_space.nvec[0]
+            # in current SB version action space must be symmetric
+            dummy_env = DummyEnv(action_space=gym.spaces.Box(np.array([-1.] * n), np.array([1.] * n)),
+                                 observation_space=gym.spaces.Box(np.array([0.] * n), np.array([1.] * n)))
+        else:
+            raise Exception("Action space must be Discrete or one-dimensional MultiDiscrete")
 
-            super(WolpertingerAgent, self).__init__(policy, dummy_env, gamma, memory_policy, eval_env, nb_train_steps,
-                 nb_rollout_steps, nb_eval_steps, param_noise, action_noise, normalize_observations, tau,
-                 batch_size, param_noise_adaption_interval, normalize_returns, enable_popart, observation_range,
-                 critic_l2_reg, return_range, actor_lr, critic_lr, clip_norm, reward_scale,
-                 render, render_eval, memory_limit, buffer_size, random_exploration, verbose, tensorboard_log,
-                 _init_setup_model, policy_kwargs, full_tensorboard_log)
+        super(WolpertingerAgent, self).__init__(policy, dummy_env, gamma, memory_policy, eval_env, nb_train_steps,
+             nb_rollout_steps, nb_eval_steps, param_noise, action_noise, normalize_observations, tau,
+             batch_size, param_noise_adaption_interval, normalize_returns, enable_popart, observation_range,
+             critic_l2_reg, return_range, actor_lr, critic_lr, clip_norm, reward_scale,
+             render, render_eval, memory_limit, buffer_size, random_exploration, verbose, tensorboard_log,
+             _init_setup_model, policy_kwargs, full_tensorboard_log)
 
-            self.knn_search = knn_search.KNNSearch(dummy_env.action_space, embeddings)
-            self.k = max(1, int(n * k_ratio))
+        self.knn_search = knn_search.KNNSearch(dummy_env.action_space, embeddings)
+        self.k = max(1, int(n * k_ratio))
 
     def _policy(self, obs, apply_noise=True, compute_q=True):
         """
@@ -94,6 +94,10 @@ class WolpertingerAgent(DDPG):
         action, q_value = actions[max_index], q_values[max_index]
         action = (action + 1) / 2
         return action, q_value
+
+    def _train_step(self, step, writer, log=False):
+        with self.sess.as_default(), self.graph.as_default():
+            return super()._train_step(step, writer, log)
 
     def learn(self, total_timesteps, callback=None, seed=None, log_interval=100, tb_log_name="DDPG", \
              reset_num_timesteps=True, replay_wrapper=None):
