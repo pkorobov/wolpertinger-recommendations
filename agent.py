@@ -1,9 +1,9 @@
 from recsim.agent import AbstractEpisodicRecommenderAgent
 
-from environment import *
-from wolpertinger.util import data as util_data
 from wolpertinger.wolp_agent import *
 
+from stable_baselines.ddpg import MlpPolicy
+from gym import spaces
 
 class StaticAgent(AbstractEpisodicRecommenderAgent):
 
@@ -17,26 +17,25 @@ class StaticAgent(AbstractEpisodicRecommenderAgent):
 
 class WolpAgent(AbstractEpisodicRecommenderAgent):
 
-    def __init__(self, env, action_space, k_ratio=0.1, max_actions=1000):
+    def __init__(self, env, action_space, k_ratio=0.1, policy_kwargs=None, action_noise=None, max_actions=1000):
         AbstractEpisodicRecommenderAgent.__init__(self, action_space)
 
         self._observation_space = env.observation_space
-
-        num_actions = int(action_space.nvec[0])
-        self.agent = WolpertingerAgent(env, max_actions=max_actions, k_ratio=k_ratio)
-        self.agent.add_data_fetch(util_data.Data())
+        self.agent = WolpertingerAgent(MlpPolicy, env, action_noise=action_noise,
+                                       policy_kwargs=policy_kwargs, k_ratio=k_ratio)
 
         self.t = 0
         self.current_episode = {}
 
     def begin_episode(self, observation=None):
-        self.t = 0
+        self.agent._reset()
         state = self._extract_state(observation)
         return self._act(state)
 
     def step(self, reward, observation):
         state = self._extract_state(observation)
         self._observe(state, reward, 0)
+        self.t += 1
         return self._act(state)
 
     def end_episode(self, reward, observation=None):
@@ -44,13 +43,11 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
         self._observe(state, reward, 1)
 
     def _act(self, state):
-        action = self.agent.act(state)
+        action, q_value = self.agent._policy(state)
         self.current_episode = {
             "obs": state,
             "action": action,
-            "t": self.t
         }
-        self.t += 1
         return np.where(action)[0]
 
     def _observe(self, next_state, reward, done):
@@ -58,12 +55,15 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
             raise ValueError("Current episode is expected to be non-empty")
 
         self.current_episode.update({
-            "obs2": next_state,
+            "next_obs": next_state,
             "reward": reward,
             "done": done
         })
 
-        self.agent.observe(self.current_episode)
+        self.agent._store_transition(**self.current_episode)
+        if self.agent.replay_buffer.can_sample(self.agent.batch_size):
+            self.agent._train_step(self.t, None)
+            self.agent._update_target_net()
         self.current_episode = {}
 
     def _extract_state(self, observation):
