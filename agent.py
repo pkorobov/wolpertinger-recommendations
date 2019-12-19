@@ -1,10 +1,9 @@
 from recsim.agent import AbstractEpisodicRecommenderAgent
 
-from environment import *
 from wolpertinger.wolp_agent import *
 
 from stable_baselines.ddpg import MlpPolicy
-
+from gym import spaces
 
 class StaticAgent(AbstractEpisodicRecommenderAgent):
 
@@ -18,17 +17,18 @@ class StaticAgent(AbstractEpisodicRecommenderAgent):
 
 class WolpAgent(AbstractEpisodicRecommenderAgent):
 
-    def __init__(self, env, action_space, k_ratio=0.1, max_actions=1000):
+    def __init__(self, env, action_space, k_ratio=0.1, policy_kwargs=None, action_noise=None, max_actions=1000):
         AbstractEpisodicRecommenderAgent.__init__(self, action_space)
 
         self._observation_space = env.observation_space
-        self.agent = WolpertingerAgent(MlpPolicy, env, k_ratio=k_ratio)
+        self.agent = WolpertingerAgent(MlpPolicy, env, action_noise=action_noise,
+                                       policy_kwargs=policy_kwargs, k_ratio=k_ratio)
 
         self.t = 0
         self.current_episode = {}
 
     def begin_episode(self, observation=None):
-        self.agent._setup_learn(0)
+        self.agent._reset()
         state = self._extract_state(observation)
         return self._act(state)
 
@@ -62,7 +62,8 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
 
         self.agent._store_transition(**self.current_episode)
         if self.agent.replay_buffer.can_sample(self.agent.batch_size):
-            critic_loss, actor_loss = self.agent._train_step(self.t, None)#, log=t_train == 0)
+            self.agent._train_step(self.t, None)
+            self.agent._update_target_net()
         self.current_episode = {}
 
     def _extract_state(self, observation):
