@@ -6,7 +6,7 @@ from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import recsim_gym, environment, runner_lib
 from stable_baselines.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise, AdaptiveParamNoiseSpec
 
-from environment import *
+from environment.synthetic.environment import *
 from agent import WolpAgent, StaticAgent
 
 
