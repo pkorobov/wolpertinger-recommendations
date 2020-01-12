@@ -1,24 +1,22 @@
-import mxnet.gluon as gluon
-import mxnet as mx
-from environment.netflix.utils import *
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
 
-class Recommender(gluon.HybridBlock):
+class Recommender(nn.Module):
 
     def __init__(self, config):
-        super(Recommender, self).__init__(prefix="neurec_")
+        super(Recommender, self).__init__()
         self.config = config
+        self.feature_modules = nn.ModuleDict()
 
     def _register_feature(self, feature):
         if feature["encoding"] == "embedding":
             feature_dim = feature["embedding_dim"]
 
-            tied_block = None
-            for tied_feature in feature.get("tied_features", []):
-                if tied_feature in self._children:
-                    tied_block = self._children[tied_feature]
-
-            self.register_child(gluon.nn.Embedding(feature["num_embeddings"], feature["embedding_dim"], params=block_params_if_any(tied_block)), feature["name"])
+            module_name = self._module_name(feature)
+            if module_name not in self.feature_modules:
+                self.feature_modules[module_name] = nn.Embedding(feature["num_embeddings"], feature["embedding_dim"])
         elif feature["encoding"] == "numeric":
             feature_dim = 1
         else:
@@ -26,15 +24,26 @@ class Recommender(gluon.HybridBlock):
 
         return feature_dim
 
-    def _encode_feature(self, feature, feature_ind, F, x):
-        feature_width, feature_dim = feature.get("padding", 1), feature.get("dim", 1)
-        next_feature_ind = feature_ind + feature_width * feature_dim
-        x_feature = F.slice_axis(x, axis=1, begin=feature_ind, end=next_feature_ind)
-        x_encoded = self._children[feature["name"]](x_feature) if feature["name"] in self._children else F.reshape(x_feature, shape=(0, feature_width, feature_dim))
+    def _encode_feature(self, feature, feature_ind, x):
+        feature_width = feature.get("padding", 1)
+
+        x_feature = x.narrow(dim=1, start=feature_ind, length=feature_width)
+        if feature["encoding"] == "embedding":
+            x_feature = x_feature.long()
+
+        module_name = self._module_name(feature)
+        if module_name in self.feature_modules:
+            x_encoded = self.feature_modules[module_name](x_feature)
+        else:
+            x_encoded = torch.reshape(x_feature, shape=(x.shape[0], feature_width, 1))
+
+        next_feature_ind = feature_ind + feature_width
         return x_encoded, next_feature_ind
 
-    def hybrid_forward(self, F, x, *args, **kwargs):
-        raise NotImplemented()
+    def _module_name(self, feature):
+        return feature["module_name"] if "module_name" in feature else feature["name"]
 
     def create_optimizer(self):
-        return mx.gluon.Trainer(self.collect_params(), mx.optimizer.Adam(self.config["training"]["learning_rate"]))
+        return optim.Adam(self.parameters(), lr=self.config["training"]["learning_rate"])
+
+
