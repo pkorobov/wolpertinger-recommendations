@@ -112,8 +112,8 @@ def train(config, experiment_dir, context, writer):
     train_subset = data.loc[train_users]
     val_subset = data.loc[val_users]
 
-    train_loader = dl.NetflixPandasDataLoader(ds.NetflixDataset(train_subset, config, **dataset_args), config, batch_size=config["training"]["batch_size"], shuffle=False)
-    val_loader = dl.NetflixPandasDataLoader(ds.NetflixDataset(val_subset, config, **dataset_args), config, batch_size=config["training"]["batch_size"], shuffle=False)
+    train_loader = dl.NetflixDataLoader(ds.NetflixDataset(train_subset, config, **dataset_args), config, batch_size=config["training"]["batch_size"], shuffle=False)
+    val_loader = dl.NetflixDataLoader(ds.NetflixDataset(val_subset, config, **dataset_args), config, batch_size=config["training"]["batch_size"], shuffle=False)
 
     logging.info("Training examples: {} Validation examples: {}".format(len(train_loader.dataset), len(val_loader.dataset)))
     model = _create_recommender(config, context)
@@ -143,7 +143,7 @@ def evaluate(model, config, context, metrics_section="metrics"):
     loss = []
     for j in range(n_samples):
         sample = data.sample(frac=1, replace=True)
-        eval_loader = dl.NetflixPandasDataLoader(ds.NetflixDataset(sample, config, **dataset_args), config, batch_size=config["training"]["batch_size"], shuffle=False)
+        eval_loader = dl.NetflixDataLoader(ds.NetflixDataset(sample, config, **dataset_args), config, batch_size=config["training"]["batch_size"], shuffle=False)
         loss.append(nt.validate(model, config, eval_loader, context))
 
     config["evaluation"][metrics_section] = [

@@ -1,10 +1,10 @@
 import logging
 
-import mxnet.gluon.data as md
+import torch.utils.data as td
 from environment.netflix.utils import months_between
 
 
-class NetflixDataset(md.Dataset):
+class NetflixDataset(td.Dataset):
 
     def __init__(self, data, config, **kwargs):
         self.data = self._precompute_features(data, config, **kwargs)

@@ -1,7 +1,7 @@
 import logging
 
-import mxnet.gluon.data.sampler as _sampler
-import mxnet.ndarray as nd
+import torch
+import torch.utils.data as td
 import numpy as np
 
 
@@ -10,9 +10,9 @@ REMOVE_TARGET_ONLY = "target-only"
 REMOVE_TARGET_AND_AFTER = "target-and-after"
 
 
-class NetflixPandasDataLoader(object):
+class NetflixDataLoader(td.dataloader.DataLoader):
 
-    def __init__(self, dataset, config, batch_size, shuffle=False, last_batch=None, max_recommended_batch_size=1024):
+    def __init__(self, dataset, config, batch_size, shuffle=False, max_recommended_batch_size=1024):
         if batch_size > max_recommended_batch_size:
             logging.warning(
                 "Batch size is too large {}. Lost of copying happening here, so you should apply this to batches of size <= {}".format(batch_size, max_recommended_batch_size))
@@ -24,8 +24,8 @@ class NetflixPandasDataLoader(object):
         self.ordered_columns = [feature["name"] for feature in self.features_config if feature.get("precompute", False)]
         self.column_indexes = {column: j for j, column in enumerate(self.ordered_columns)}
 
-        sampler = _sampler.RandomSampler(len(dataset)) if shuffle else _sampler.SequentialSampler(len(dataset))
-        self.batch_sampler = _sampler.BatchSampler(sampler, batch_size, last_batch if last_batch else 'keep')
+        sampler = td.sampler.RandomSampler(dataset) if shuffle else td.sampler.SequentialSampler(dataset)
+        self.batch_sampler = td.sampler.BatchSampler(sampler, batch_size, False)
 
         self._target_index = np.vectorize(_random_target_index, otypes=[int])
         self._target_feature = np.vectorize(_target_feature, otypes=[object])
@@ -45,7 +45,7 @@ class NetflixPandasDataLoader(object):
 
     def batchify(self, data: np.array):
         ti = self._target_index(data[:, self.column_indexes[self.target_config["source"]]])
-        arrays = []
+        features = []
         for j, feature in enumerate(self.features_config):
             if feature.get("source", ""):
                 feature_data = self._target_feature(data[:, self.column_indexes[feature["source"]]], ti)
@@ -61,14 +61,11 @@ class NetflixPandasDataLoader(object):
             if padding:
                 feature_data = self._pad_sequence(feature_data, padding, 1)
 
-            array = nd.array(feature_data.tolist()).reshape((len(data), -1))
-            arrays.append(array)
+            features.append(np.array(feature_data.tolist()).reshape((len(data), -1)))
 
-        target_data = self._target_feature(data[:, self.column_indexes[self.target_config["source"]]], ti)
+        target_data = self._target_feature(data[:, self.column_indexes[self.target_config["source"]]], ti).astype(float).reshape((len(data), -1))
 
-        x = nd.concat(*arrays, dim=1)
-        y = nd.array(target_data.tolist()).reshape((len(data), -1))
-        return x, y
+        return torch.from_numpy(np.concatenate(features, axis=1)), torch.from_numpy(target_data)
 
 
 def _random_target_index(values):
