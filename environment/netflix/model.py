@@ -121,6 +121,9 @@ def train(config, experiment_dir, writer):
     example = next(iter(val_loader))[0][[0]]
     writer.add_graph(model, example)
 
+    movie_embeddings = model.feature_modules["movies"].weight.data
+    writer.add_embedding(movie_embeddings, _read_movie_meta(config)[:movie_embeddings.shape[0]])
+
     return model
 
 
@@ -128,6 +131,16 @@ def _create_recommender(config):
     model = AttentiveRecommender(config)
     nt.initialize(model)
     return model
+
+
+def _read_movie_meta(config):
+    movie_indexes = read_movie_indexes(config)
+    movie_meta = []
+    with open(os.path.join(config["input"]["raw"]["dir"], "movie_titles.csv"), encoding="ISO-8859-1") as movie_titles_file:
+        for line in movie_titles_file:
+            movie_id, year, title = line.split(",", 2)
+            movie_meta.append((movie_indexes[int(movie_id)], "{} ({})".format(title.strip(), year)))
+    return ["PADDING"] + [title for index, title in sorted(movie_meta)]
 
 
 def evaluate(model, config, metrics_section="metrics"):
