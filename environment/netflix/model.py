@@ -3,8 +3,9 @@ import json
 import logging
 import pickle
 
-import mxboard
-import mxnet as mx
+import torch
+import torch.utils.tensorboard as tb
+
 import numpy as np
 import pandas as pd
 import datetime as dt
@@ -27,7 +28,6 @@ UPPER_PERCENTILE = 97.5
 START_DATE = dt.datetime(1999, 11, 1, 0, 0)
 END_DATE = dt.datetime(2006, 1, 1, 0, 0)
 
-mx.random.seed(1243)
 np.random.seed(1243)
 
 
@@ -36,7 +36,7 @@ def setup_logging():
     logging.getLogger().setLevel(logging.INFO)
 
 
-def run_experiment(experiment_dir, experiment, regime, export, context):
+def run_experiment(experiment_dir, experiment, regime):
     config_dir = os.path.join(experiment_dir, experiment)
     config_path = os.path.join(config_dir, experiment + ".json")
     logging.info("Start experiment: " + experiment)
@@ -45,24 +45,21 @@ def run_experiment(experiment_dir, experiment, regime, export, context):
         config = json.load(config_file)
 
     start = dt.datetime.now().strftime("%Y-%m-%dT%H:%M")
-    with mxboard.SummaryWriter(logdir=os.path.join(experiment_dir, "tensorboard", start)) as writer:
+    with tb.SummaryWriter(os.path.join(experiment_dir, "tensorboard", start)) as writer:
         if regime == TRAIN:
-            model = train(config, config_dir, context, writer)
-            model.save_parameters(os.path.join(config_dir, "model.params"))
+            model = train(config, config_dir, writer)
+            torch.save(model.state_dict(), os.path.join(config_dir, "model.params"))
         elif regime == INFER:
-            model = _create_recommender(config, context)
-            model.load_parameters(os.path.join(config_dir, "model.params"), ctx=context)
+            model = _create_recommender(config)
+            model.load_state_dict(torch.load(os.path.join(config_dir, "model.params")))
         else:
             raise ValueError(regime)
 
-    config = evaluate(model, config, context)
+    config = evaluate(model, config)
 
     with open(config_path, "w") as config_file:
         logging.info("Saving evaluation results in config at " + config_path)
         json.dump(config, config_file, indent=2)
-
-    if export:
-        model.export(config_dir + "/exported")
 
 
 def read_movie_indexes(config):
@@ -102,7 +99,7 @@ def _read_data_part(part_path):
     return pd.read_pickle(part_path)
 
 
-def train(config, experiment_dir, context, writer):
+def train(config, experiment_dir, writer):
     movie_indexes = read_movie_indexes(config)
     data = read_train_data(config)
 
@@ -116,23 +113,24 @@ def train(config, experiment_dir, context, writer):
     val_loader = dl.NetflixDataLoader(ds.NetflixDataset(val_subset, config, **dataset_args), config, batch_size=config["training"]["batch_size"], shuffle=False)
 
     logging.info("Training examples: {} Validation examples: {}".format(len(train_loader.dataset), len(val_loader.dataset)))
-    model = _create_recommender(config, context)
-    optimizer = model.create_optimizer()
+    model = _create_recommender(config)
+
     checkpoint_dir = ensure_dir(os.path.join(experiment_dir, "checkpoint"))
-    nt.train_with_optimizer(model, config, optimizer, train_loader, val_loader, context, batches_in_step=10, batches_in_epoch=100, writer=writer, checkpoint_dir=checkpoint_dir)
+    nt.train(model, config, train_loader, val_loader, batches_in_step=10, batches_in_epoch=100, writer=writer, checkpoint_dir=checkpoint_dir)
 
-    writer.add_graph(model)
+    example = next(iter(val_loader))[0][[0]]
+    writer.add_graph(model, example)
 
     return model
 
 
-def _create_recommender(config, context):
+def _create_recommender(config):
     model = AttentiveRecommender(config)
-    nt.initialize(model, config, context)
+    nt.initialize(model)
     return model
 
 
-def evaluate(model, config, context, metrics_section="metrics"):
+def evaluate(model, config, metrics_section="metrics"):
     data = read_test_data(config)
     movie_indexes = read_movie_indexes(config)
 
@@ -144,7 +142,7 @@ def evaluate(model, config, context, metrics_section="metrics"):
     for j in range(n_samples):
         sample = data.sample(frac=1, replace=True)
         eval_loader = dl.NetflixDataLoader(ds.NetflixDataset(sample, config, **dataset_args), config, batch_size=config["training"]["batch_size"], shuffle=False)
-        loss.append(nt.validate(model, config, eval_loader, context))
+        loss.append(nt.validate(model, config, eval_loader))
 
     config["evaluation"][metrics_section] = [
         {"metric": "loss", "mean": np.mean(loss), "upper": np.percentile(loss, UPPER_PERCENTILE), "lower": np.percentile(loss, LOWER_PERCENTILE)}
@@ -161,14 +159,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--regime", help="Training or inference", choices=[TRAIN, INFER], default=TRAIN)
     parser.add_argument("--experiment-dir", help="Directory where experiment files are located", type=str, required=True)
-    parser.add_argument("--export", help="Set to true if you want to export the model", action="store_true")
     parser.add_argument("experiments", help="Experiment name", type=str, nargs="+")
     args = parser.parse_args()
 
-    context = mx.cpu()
-
     for experiment in args.experiments:
-        run_experiment(args.experiment_dir, experiment, args.regime, args.export, context)
+        run_experiment(args.experiment_dir, experiment, args.regime)
 
 
 if __name__ == "__main__":

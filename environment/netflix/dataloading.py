@@ -65,7 +65,7 @@ class NetflixDataLoader(td.dataloader.DataLoader):
 
         target_data = self._target_feature(data[:, self.column_indexes[self.target_config["source"]]], ti).astype(float).reshape((len(data), -1))
 
-        return torch.from_numpy(np.concatenate(features, axis=1)), torch.from_numpy(target_data)
+        return torch.from_numpy(np.concatenate(features, axis=1)).float(), torch.from_numpy(target_data).float()
 
 
 def _random_target_index(values):
