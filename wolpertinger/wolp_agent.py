@@ -1,6 +1,7 @@
 import knn_search
 import copy
 from stable_baselines import DDPG
+import tensorflow as tf
 
 import gym
 from gym.core import Env
@@ -84,3 +85,9 @@ class WolpertingerAgent(DDPG):
     def _train_step(self, step, writer, log=False):
         with self.sess.as_default(), self.graph.as_default():
             return super()._train_step(step, writer, log)
+
+    def get_sess(self):
+        return self.sess
+
+    def get_graph(self):
+        return self.graph
