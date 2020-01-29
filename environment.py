@@ -3,28 +3,25 @@ from gym import spaces
 from recsim import document
 from recsim import user
 from recsim.choice_model import AbstractChoiceModel
+import tensorflow as tf
 
 SEED = 1
 np.random.seed(SEED)
+tf.random.set_random_seed(SEED)
 
-W = np.array([[.100, .800],
-              [.050, .900]])
+# W = np.array([[.100, .800],
+#               [.050, .900]])
 
-W = np.ones((10, 10)) / 10
-W[:, 6] = 0.9
-# W = np.array([[.800, .100],
-#               [.900, .050]])
+DOC_NUM = 49
+W = np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
 
-# W = np.array([[.010, .700, .800],
-#               [.020, .850, .900],
-#               [.050, .800, .950]])
-
-DOC_NUM = W.shape[0]
+MOST_POPULAR = 6
+W[:, MOST_POPULAR] = np.random.uniform(0.9, 1.0, DOC_NUM)
 
 P_EXIT_ACCEPTED = 0.1
 P_EXIT_NOT_ACCEPTED = 0.2
 
-
+TIME_STEP = 0.0
 
 
 class Document(document.AbstractDocument):
@@ -115,7 +112,6 @@ class UserChoiceModel(AbstractChoiceModel):
         if np.random.random() < self.scores[0]:
             return 0
 
-
 class UserModel(user.AbstractUserModel):
 
     def __init__(self):
@@ -137,8 +133,12 @@ class UserModel(user.AbstractUserModel):
         return responses
 
     def update_state(self, slate_documents, responses):
+
         if len(slate_documents) != 1:
             raise ValueError("Expecting single document, but got: {}".format(slate_documents))
+
+        global TIME_STEP
+        TIME_STEP += 1.0
 
         response = responses[0]
         doc = slate_documents[0]
