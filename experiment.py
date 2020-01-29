@@ -11,9 +11,10 @@ import tensorflow as tf
 from environment import *
 from agent import WolpAgent, StaticAgent
 
-RUNS = 1
+RUNS = 20
 MAX_TRAINING_STEPS = 15
 NUM_ITERATIONS = 400
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 def create_random_agent(sess, environment, eval_mode, summary_writer=None):
     return RandomAgent(environment.action_space, random_seed=SEED)
@@ -96,7 +97,9 @@ def main():
 
     base_dir = cleanup_dir('logs/')
     for agent_name, create_agent_fun in agents:
+        print("Running %s..." % agent_name)
         for run in range(RUNS):
+            print("RUN # %s of %s" % (run, RUNS))
             dir = base_dir + agent_name + "/run_" + str(run)
             env.reset()
 
