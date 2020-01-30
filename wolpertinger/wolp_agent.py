@@ -1,4 +1,4 @@
-import knn_search
+import wolpertinger.knn_search as knn_search
 import copy
 from stable_baselines import DDPG
 import tensorflow as tf
