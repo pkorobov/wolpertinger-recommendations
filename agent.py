@@ -18,12 +18,14 @@ class StaticAgent(AbstractEpisodicRecommenderAgent):
 class WolpAgent(AbstractEpisodicRecommenderAgent):
 
     def __init__(self, env, action_space, k_ratio=0.1, policy_kwargs=None,
-                 action_noise=None, eval_mode=False, max_actions=1000, writer=None):
+                 action_noise=None, eval_mode=False, max_actions=1000, writer=None,
+                 full_tensorboard_log=False):
         AbstractEpisodicRecommenderAgent.__init__(self, action_space)
 
         self._observation_space = env.observation_space
         self.agent = WolpertingerAgent(MlpPolicy, env, tau=1e-5, action_noise=action_noise,
-                                       policy_kwargs=policy_kwargs, k_ratio=k_ratio)
+                                       policy_kwargs=policy_kwargs, k_ratio=k_ratio,
+                                       full_tensorboard_log=full_tensorboard_log)
         self.t = 0
         self.current_episode = {}
         self.eval_mode = eval_mode
