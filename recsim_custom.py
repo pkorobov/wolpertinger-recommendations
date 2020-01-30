@@ -162,6 +162,7 @@ class EvalRunnerCustom(runner_lib.EvalRunner, RunnerCustom):
             episode_length, episode_rewards = self._run_one_episode()
             num_steps += episode_length
             self._write_metrics(num_steps, suffix='eval')
+            num_episodes += 1
 
         output_file = os.path.join(self._output_dir, 'returns_%s' % total_steps)
         tf.compat.v1.logging.info('eval_file: %s', output_file)
