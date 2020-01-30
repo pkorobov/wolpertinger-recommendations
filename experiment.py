@@ -14,6 +14,7 @@ from agent import WolpAgent, StaticAgent
 RUNS = 20
 MAX_TRAINING_STEPS = 15
 NUM_ITERATIONS = 400
+EVAL_EPISODES = 100
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 def create_random_agent(sess, environment, eval_mode, summary_writer=None):
@@ -44,7 +45,7 @@ def create_wolp_agent_with_ratio(k_ratio=0.1, policy_kwargs=None, action_noise=N
         # action_noise_ = None if eval_mode else action_noise
         return WolpAgent(environment, action_space=environment.action_space,
                          k_ratio=k_ratio, policy_kwargs=policy_kwargs,
-                         action_noise=action_noise, eval_mode=eval_mode)
+                         action_noise=action_noise, eval_mode=eval_mode, writer=summary_writer)
 
     return create_wolp_agent
 
@@ -73,9 +74,6 @@ def main():
     num_actions = lambda actions, k_ratio: max(1, round(actions * k_ratio))
 
     agents = [
-               ("random", create_random_agent),
-               ("optimal", create_good_agent),
-               ("bad", create_bad_agent),
                # ('wolpertinger_1_neighbour', create_wolp_agent_with_ratio(0, action_noise=OrnsteinUhlenbeckActionNoise)),
                ('wolpertinger_0.01_' + "(" + str(num_actions(DOC_NUM, 0.01)) + ")",
                                                                   create_wolp_agent_with_ratio(0.01,
@@ -92,7 +90,10 @@ def main():
                ('wolpertinger_1.0_' + "(" + str(num_actions(DOC_NUM, 1.0)) + ")",
                                                                  create_wolp_agent_with_ratio(1,
                                                                  action_noise=noise,
-                                                                 policy_kwargs=policy_kwargs))
+                                                                 policy_kwargs=policy_kwargs)),
+               ("random", create_random_agent),
+               ("optimal", create_good_agent),
+               ("bad", create_bad_agent)
     ]
 
     base_dir = cleanup_dir('logs/')
@@ -117,7 +118,7 @@ def main():
                 base_dir=dir,
                 create_agent_fn=create_agent_fun,
                 env=env,
-                max_eval_episodes=1000,
+                max_eval_episodes=EVAL_EPISODES,
                 test_mode=True,
                 episode_log_file='episodes_log_eval.csv'
             )

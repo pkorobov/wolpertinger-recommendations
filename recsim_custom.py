@@ -92,12 +92,47 @@ class RunnerCustom(runner_lib.Runner):
         return step_number, total_reward
 
 
+    def _write_metrics(self, step, suffix):
+        """Writes the metrics to Tensorboard summaries."""
+
+        def add_summary(tag, value):
+            summary = tf.compat.v1.Summary(value=[
+                tf.compat.v1.Summary.Value(
+                    tag=tag + '/' + suffix, simple_value=value)
+            ])
+            self._summary_writer.add_summary(summary, step)
+
+        num_steps = np.sum(self._stats['episode_length'])
+        time_per_step = np.sum(self._stats['episode_time']) / num_steps
+
+        add_summary('AverageEpisodeLength', np.mean(self._stats['episode_length']))
+        add_summary('AverageEpisodeRewards', np.mean(self._stats['episode_reward']))
+
+        # Environment-specific Tensorboard summaries.
+        self._env.write_metrics(add_summary)
+        self._summary_writer.flush()
+
+
 class TrainRunnerCustom(runner_lib.TrainRunner, RunnerCustom):
     def __init__(self, max_training_steps=250000, num_iterations=100,
                checkpoint_frequency=1, **kwargs):
         runner_lib.TrainRunner.__init__(self, max_training_steps=max_training_steps,
                                         num_iterations=num_iterations,
                                         checkpoint_frequency=checkpoint_frequency, **kwargs)
+
+    def _run_train_phase(self, total_steps):
+        """Runs training phase and updates total_steps."""
+
+        self._initialize_metrics()
+
+        num_steps = 0
+        while num_steps < self._max_training_steps:
+            episode_length, _ = self._run_one_episode()
+            num_steps += episode_length
+
+        total_steps += num_steps
+        self._write_metrics(total_steps, suffix='train')
+        return total_steps
 
 
 class EvalRunnerCustom(runner_lib.EvalRunner, RunnerCustom):
@@ -119,14 +154,14 @@ class EvalRunnerCustom(runner_lib.EvalRunner, RunnerCustom):
         self._initialize_metrics()
 
         num_episodes = 0
+        num_steps = 0
         episode_rewards = []
 
         while num_episodes < self._max_eval_episodes:
             self._initialize_metrics()
-            _, episode_reward = self._run_one_episode()
-            episode_rewards.append(episode_reward)
-            num_episodes += 1
-            self._write_metrics(num_episodes, suffix='eval')
+            episode_length, episode_rewards = self._run_one_episode()
+            num_steps += episode_length
+            self._write_metrics(num_steps, suffix='eval')
 
         output_file = os.path.join(self._output_dir, 'returns_%s' % total_steps)
         tf.compat.v1.logging.info('eval_file: %s', output_file)

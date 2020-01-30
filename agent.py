@@ -18,7 +18,7 @@ class StaticAgent(AbstractEpisodicRecommenderAgent):
 class WolpAgent(AbstractEpisodicRecommenderAgent):
 
     def __init__(self, env, action_space, k_ratio=0.1, policy_kwargs=None,
-                 action_noise=None, eval_mode=False, max_actions=1000):
+                 action_noise=None, eval_mode=False, max_actions=1000, writer=None):
         AbstractEpisodicRecommenderAgent.__init__(self, action_space)
 
         self._observation_space = env.observation_space
@@ -27,11 +27,10 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
         self.t = 0
         self.current_episode = {}
         self.eval_mode = eval_mode
+        self.writer = writer
 
         max_tf_checkpoints_to_keep = 10
         with self.agent.get_sess().as_default(), self.agent.get_graph().as_default():
-            # print("#################################")
-            # print(tf.all_variables())
             self._saver = tf.train.Saver(var_list=tf.all_variables(), max_to_keep=max_tf_checkpoints_to_keep)
 
     def begin_episode(self, observation=None):
@@ -69,7 +68,7 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
         if not self.eval_mode:
             self.agent._store_transition(**self.current_episode)
             if self.agent.replay_buffer.can_sample(self.agent.batch_size):
-                self.agent._train_step(self.t, None)
+                self.agent._train_step(self.t, self.writer)
                 self.agent._update_target_net()
         self.current_episode = {}
 
