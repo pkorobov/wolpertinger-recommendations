@@ -15,14 +15,7 @@ class DummyEnv(Env):
         self.reward_range = reward_range
 
 class WolpertingerAgent(DDPG):
-    def __init__(self, policy, env, k_ratio=0.1, embeddings=None, gamma=0.99, memory_policy=None, eval_env=None, nb_train_steps=50,
-                 nb_rollout_steps=100, nb_eval_steps=100, param_noise=None, action_noise=None,
-                 normalize_observations=False, tau=0.001, batch_size=128, param_noise_adaption_interval=50,
-                 normalize_returns=False, enable_popart=False, observation_range=(-5., 5.), critic_l2_reg=0.,
-                 return_range=(-np.inf, np.inf), actor_lr=1e-4, critic_lr=1e-3, clip_norm=None, reward_scale=1.,
-                 render=False, render_eval=False, memory_limit=None, buffer_size=50000, random_exploration=0.0,
-                 verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
-                 full_tensorboard_log=False):
+    def __init__(self, policy, env, k_ratio=0.1, embeddings=None, **kwargs):
 
         if isinstance(env.action_space, gym.spaces.Discrete):
             n = env.action_space.n
@@ -36,12 +29,7 @@ class WolpertingerAgent(DDPG):
         else:
             raise Exception("Action space must be Discrete or one-dimensional MultiDiscrete")
 
-        super(WolpertingerAgent, self).__init__(policy, dummy_env, gamma, memory_policy, eval_env, nb_train_steps,
-             nb_rollout_steps, nb_eval_steps, param_noise, action_noise, normalize_observations, tau,
-             batch_size, param_noise_adaption_interval, normalize_returns, enable_popart, observation_range,
-             critic_l2_reg, return_range, actor_lr, critic_lr, clip_norm, reward_scale,
-             render, render_eval, memory_limit, buffer_size, random_exploration, verbose, tensorboard_log,
-             _init_setup_model, policy_kwargs, full_tensorboard_log)
+        super(WolpertingerAgent, self).__init__(policy, dummy_env, **kwargs)
 
         self.knn_search = knn_search.KNNSearch(dummy_env.action_space, embeddings)
         self.k = max(1, int(n * k_ratio))

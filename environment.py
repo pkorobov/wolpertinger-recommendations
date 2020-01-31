@@ -7,13 +7,13 @@ import tensorflow as tf
 
 SEED = 1
 np.random.seed(SEED)
-tf.random.set_random_seed(SEED)
 
 # W = np.array([[.100, .800],
 #               [.050, .900]])
 
 DOC_NUM = 49
 W = np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
+print(W)
 
 MOST_POPULAR = 6
 W[:, MOST_POPULAR] = np.random.uniform(0.9, 1.0, DOC_NUM)
