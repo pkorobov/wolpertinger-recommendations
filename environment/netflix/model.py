@@ -72,17 +72,17 @@ def read_movie_indexes(config):
 
 def read_train_data(config):
     partitions = config["training"]["partitions"]
-    data_parts = list(_find_data_parts(config))[:partitions]
-    return pd.concat([_read_data_part(part) for part in data_parts])
+    data_parts = list(find_data_parts(config))[:partitions]
+    return pd.concat([read_data_part(part) for part in data_parts])
 
 
 def read_test_data(config):
     partitions = config["evaluation"]["partitions"]
-    data_parts = list(_find_data_parts(config))[-partitions:]
-    return pd.concat([_read_data_part(part) for part in data_parts])
+    data_parts = list(find_data_parts(config))[-partitions:]
+    return pd.concat([read_data_part(part) for part in data_parts])
 
 
-def _find_data_parts(config):
+def find_data_parts(config):
     processed_input_config = config["input"]["processed"]
 
     data_dir = processed_input_config["dir"]
@@ -94,7 +94,7 @@ def _find_data_parts(config):
                 yield os.path.join(this_dir, file_name)
 
 
-def _read_data_part(part_path):
+def read_data_part(part_path):
     logging.info("Reading data at " + part_path)
     return pd.read_pickle(part_path)
 
