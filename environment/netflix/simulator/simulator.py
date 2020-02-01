@@ -4,9 +4,12 @@ import shutil
 
 from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import recsim_gym, runner_lib
-from environment.netflix.preprocess import Rating
 
-from environment.netflix.simulator.environment import SessionProvider, MovieSampler, UserSampler, UserModel, UserChoiceModel, ratings_reward, NetflixEnvironment
+from environment.netflix.simulator.document import MovieSampler
+from environment.netflix.simulator.env import NetflixEnvironment, ratings_reward
+from environment.netflix.simulator.user import SessionProvider, UserSampler, UserModel, UserChoiceModel
+
+from environment.netflix.preprocess import Rating
 
 
 def create_random_agent(sess, environment, eval_mode, summary_writer=None):
