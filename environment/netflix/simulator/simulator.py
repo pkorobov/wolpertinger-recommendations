@@ -6,7 +6,7 @@ from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import recsim_gym, runner_lib
 
 from environment.netflix.simulator.document import MovieSampler
-from environment.netflix.simulator.env import NetflixEnvironment, ratings_reward
+from environment.netflix.simulator.env import NetflixEnvironment, ratings_reward, Clock
 from environment.netflix.simulator.user import SessionProvider, UserSampler, UserModel, UserChoiceModel
 
 from environment.netflix.preprocess import Rating
@@ -30,16 +30,14 @@ def cleanup_dir(dir_path):
 
 
 def run_experiment():
-    session_provider = SessionProvider()
+    slate_size = 3
+    clock = Clock()
 
     movie_sampler = MovieSampler()
 
+    session_provider = SessionProvider(clock)
     user_sampler = UserSampler(session_provider)
-
-    choice_model = UserChoiceModel(session_provider)
-
-    slate_size = 3
-
+    choice_model = UserChoiceModel()
     user_model = UserModel(user_sampler, slate_size, choice_model, session_provider)
 
     env = recsim_gym.RecSimGymEnv(

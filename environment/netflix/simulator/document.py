@@ -13,10 +13,12 @@ class StaticCandidateSet(document.CandidateSet):
         super().__init__()
         self._documents = {}
         self.observation = None
+        self.doc_ids = None
 
     def create_observation(self):
         if self.observation is None:
             self.observation = collections.OrderedDict(super().create_observation())
+            self.doc_ids = list(self.observation)
         return self.observation
 
 

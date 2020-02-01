@@ -4,6 +4,18 @@ from recsim.simulator.environment import SingleUserEnvironment
 from environment.netflix.simulator.document import StaticCandidateSet
 
 
+class Clock(object):
+
+    def __init__(self):
+        self.date = None
+
+    def get_current_date(self):
+        return self.date
+
+    def set_date(self, date):
+        self.date = date
+
+
 class NetflixEnvironment(SingleUserEnvironment):
 
     def __init__(self,
@@ -59,8 +71,8 @@ class NetflixEnvironment(SingleUserEnvironment):
             self._slate_size, len(slate))
 
         # Get the documents associated with the slate
-        # Todo: proper document indexing
-        documents = self._candidate_set.get_documents(slate)
+        mapped_slate = [self._candidate_set.doc_ids[x] for x in slate]
+        documents = self._candidate_set.get_documents(mapped_slate)
         # Simulate the user's response
         responses = self._user_model.simulate_response(documents)
 

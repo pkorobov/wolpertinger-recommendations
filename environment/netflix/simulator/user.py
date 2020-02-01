@@ -16,9 +16,10 @@ def read_data():
 
 class SessionProvider(object):
 
-    def __init__(self, max_interval_days=7):
+    def __init__(self, clock, max_interval_days=7):
         self.data = read_data()
         self.max_interval_days = max_interval_days
+        self.clock = clock
 
         self.sessions_iter = None
 
@@ -47,14 +48,16 @@ class SessionProvider(object):
             yield current_session
 
     def to_next_date(self):
-        if self.get_next_date() is None:
+        if not self.has_next_date():
             raise ValueError("Session ended, there is no next date")
         self.current_date_index += 1
+        self.clock.set_date(self.get_current_date())
 
     def to_next_session(self):
         self.current_user, self.current_session_dates = next(self.sessions_iter)
         print("New session", self.current_user, len(self.current_session_dates))
         self.current_date_index = 0
+        self.clock.set_date(self.get_current_date())
 
     def get_current_user(self):
         return self.current_user
@@ -62,13 +65,11 @@ class SessionProvider(object):
     def get_current_date(self):
         return self.current_session_dates[self.current_date_index]
 
-    def get_next_date(self):
-        if self.current_date_index + 1 >= len(self.current_session_dates):
-            return None
-        return self.current_session_dates[self.current_date_index + 1]
+    def has_next_date(self):
+        return self.current_date_index < len(self.current_session_dates) - 1
 
 
-class Response(user.AbstractResponse):
+class RatingResponse(user.AbstractResponse):
 
     def __init__(self, rating=0):
         self.rating = rating
@@ -83,17 +84,14 @@ class Response(user.AbstractResponse):
 
 class UserState(user.AbstractUserState):
 
-    def __init__(self, user_id, date):
-        # Todo: Keep previous ratings
+    def __init__(self, user_id):
         self.user_id = user_id
-        self.date = date
 
     def create_observation(self):
-        # Todo: Also provide date
         return np.array([self.user_id])
 
     def __str__(self):
-        return "User#{}@{}".format(self.user_id, self.date)
+        return "User#{}".format(self.user_id)
 
     @staticmethod
     def observation_space():
@@ -109,8 +107,7 @@ class UserSampler(user.AbstractUserSampler):
     def sample_user(self):
         self.session_provider.to_next_session()
         user_id = self.session_provider.get_current_user()
-        date = self.session_provider.get_current_date()
-        sampled_user = self._user_ctor(user_id, date)
+        sampled_user = self._user_ctor(user_id)
         return sampled_user
 
     def reset_sampler(self):
@@ -118,9 +115,8 @@ class UserSampler(user.AbstractUserSampler):
 
 
 class UserChoiceModel(AbstractChoiceModel):
-    def __init__(self, session_provider):
+    def __init__(self):
         super(UserChoiceModel, self).__init__()
-        self.session_provider = session_provider
 
     def score_documents(self, user_state, docs):
         # Todo: apply pytorch model here
@@ -134,7 +130,7 @@ class UserChoiceModel(AbstractChoiceModel):
 class UserModel(user.AbstractUserModel):
 
     def __init__(self, user_sampler, slate_size, choice_model, session_provider):
-        super(UserModel, self).__init__(Response, user_sampler, slate_size)
+        super(UserModel, self).__init__(RatingResponse, user_sampler, slate_size)
         self.choice_model = choice_model
         self.session_provider = session_provider
 
@@ -151,11 +147,8 @@ class UserModel(user.AbstractUserModel):
 
     def update_state(self, slate_documents, responses):
         # Todo: Append new rating to user state
-        if self.session_provider.get_next_date() is not None:
+        if self.session_provider.has_next_date():
             self.session_provider.to_next_date()
-            self._user_state.date = self.session_provider.get_current_date()
 
     def is_terminal(self):
-        return self.session_provider.get_next_date() is None
-
-
+        return not self.session_provider.has_next_date()
