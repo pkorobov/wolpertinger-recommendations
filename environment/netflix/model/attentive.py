@@ -2,8 +2,8 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from environment.netflix.feedforward import FeedForward
-from environment.netflix.recommender import Recommender
+from environment.netflix.model.feedforward import FeedForward
+from environment.netflix.model.recommender import Recommender
 
 
 class AttentiveRecommender(Recommender):

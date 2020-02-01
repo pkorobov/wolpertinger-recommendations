@@ -1,7 +1,7 @@
 import logging
 
 import torch.utils.data as td
-from environment.netflix.utils import months_between
+from environment.netflix.model.utils import months_between
 
 
 class NetflixDataset(td.Dataset):

@@ -11,13 +11,13 @@ import pandas as pd
 import datetime as dt
 import sklearn.model_selection as ms
 
-import environment.netflix.dataloading as dl
-import environment.netflix.datasets as ds
-import environment.netflix.training as nt
+import environment.netflix.model.dataloading as dl
+import environment.netflix.model.datasets as ds
+import environment.netflix.model.training as nt
 
-from environment.netflix.preprocess import Rating  # Need this to unpickle saved data
-from environment.netflix.attentive import AttentiveRecommender
-from environment.netflix.utils import *
+from environment.netflix.preprocess import Rating
+from environment.netflix.model.attentive import AttentiveRecommender
+from environment.netflix.model.utils import *
 
 TRAIN = "train"
 INFER = "inference"

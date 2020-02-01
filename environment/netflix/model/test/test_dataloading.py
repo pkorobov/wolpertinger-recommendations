@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-import environment.netflix.dataloading as dl
+import environment.netflix.model.dataloading as dl
 
 
 np.random.seed(12345)

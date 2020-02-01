@@ -3,7 +3,7 @@ import unittest
 import torch
 import numpy as np
 
-from environment.netflix.attentive import AttentiveRecommender
+from environment.netflix.model.attentive import AttentiveRecommender
 
 
 class TestRecommender(unittest.TestCase):
