@@ -2,6 +2,7 @@ import wolpertinger.knn_search as knn_search
 import copy
 from stable_baselines import SAC
 import tensorflow as tf
+from stable_baselines.ppo2.ppo2 import safe_mean, get_schedule_fn
 
 import gym
 from gym.core import Env
@@ -49,23 +50,18 @@ class SoftWolpertingerAgent(SAC):
         actions = self.knn_search.search_point(proto_action, self.k)[0]  # the nearest neighbour actions
         states = np.tile(observation, [len(actions), 1])  # make all the state-action pairs for the critic
 
+        qf1 = self.step_ops[4]
         feed_dict = {self.observations_ph: states, self.actions_ph: actions}
-
-        # self.infos_names = ['policy_loss', 'qf1_loss', 'qf2_loss', 'value_loss', 'entropy']
-        # All ops to call during one training step
-        # self.step_ops = [policy_loss, qf1_loss, qf2_loss,
-        #                  value_loss, qf1, qf2, value_fn, logp_pi,
-        #                  self.entropy, policy_train_op, train_values_op]
-        q_values = self.sess.run(self.step_ops[4], feed_dict=feed_dict)  # qf1
+        q_values = self.sess.run(qf1, feed_dict=feed_dict)
 
         max_index = np.argmax(q_values)  # find the index of the pair with the maximum value
         action, q_value = actions[max_index], q_values[max_index]
         action = (action + 1) / 2
         return action, None
 
-    def _train_step(self, step, writer, log=False):
+    def _train_step(self, step, writer, learning_rate=1e-3):
         with self.sess.as_default(), self.graph.as_default():
-            return super()._train_step(step, writer, log)
+            return super()._train_step(step, writer, learning_rate)
 
     def get_sess(self):
         return self.sess

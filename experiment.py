@@ -85,7 +85,7 @@ def main():
     )
     SEED = 1
     env.seed(SEED)
-    policy_kwargs = {'layers': [32, 32]}
+    policy_kwargs = {'layers': [64, 64]}
     # noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(DOC_NUM), sigma=0.3 * np.ones(DOC_NUM))
     # noise = NormalActionNoise(mean=np.zeros(DOC_NUM), sigma=0.2 * np.ones(DOC_NUM))
     noise = None
@@ -95,11 +95,11 @@ def main():
     agents = [
             # ("random", create_random_agent),
             ("optimal", create_good_agent),
-            # ('soft_wolpertinger_0.01_' + "(" + str(num_actions(DOC_NUM, 0.01)) + ")",
-            #                                                       create_soft_wolp_agent_with_ratio(0.01,
-            #                                                       action_noise=noise,
-            #                                                       policy_kwargs=policy_kwargs,
-            #                                                       ent_coef=0)),
+            ('soft_wolpertinger_0.01_' + "(" + str(num_actions(DOC_NUM, 0.01)) + ")",
+                                                                  create_soft_wolp_agent_with_ratio(0.01,
+                                                                  action_noise=noise,
+                                                                  policy_kwargs=policy_kwargs,
+                                                                  ent_coef=0)),
             ('wolpertinger_0.01_' + "(" + str(num_actions(DOC_NUM, 0.01)) + ")",
                                                                   create_wolp_agent_with_ratio(0.01,
                                                                   action_noise=noise,

@@ -108,11 +108,15 @@ class SoftWolpAgent(AbstractEpisodicRecommenderAgent):
         self._observation_space = env.observation_space
         self.agent = SoftWolpertingerAgent(SACPolicy, env, tau=1e-5, action_noise=action_noise,
                                        policy_kwargs=policy_kwargs, k_ratio=k_ratio,
-                                       full_tensorboard_log=full_tensorboard_log, **kwargs)
+                                       full_tensorboard_log=full_tensorboard_log,
+                                       learning_rate=3e-4, **kwargs)
         self.t = 0
         self.current_episode = {}
         self.eval_mode = eval_mode
         self.writer = writer
+
+        # temp
+        self.learning_rate = 3e-4
 
         max_tf_checkpoints_to_keep = 10
         with self.agent.get_sess().as_default(), self.agent.get_graph().as_default():
@@ -153,7 +157,8 @@ class SoftWolpAgent(AbstractEpisodicRecommenderAgent):
             # obs_t, action, reward, obs_tp1, done
             self.agent.replay_buffer.add(**self.current_episode)
             if self.agent.replay_buffer.can_sample(self.agent.batch_size):
-                self.agent._train_step(self.t, self.writer)
+                self.learning_rate *= 0.999
+                self.agent._train_step(self.t, self.writer, self.learning_rate)
                 self.agent.sess.run(self.agent.target_update_op)
         self.current_episode = {}
 
