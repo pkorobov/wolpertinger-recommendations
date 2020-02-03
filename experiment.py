@@ -15,7 +15,7 @@ import os
 from environment import *
 from agent import WolpAgent, SoftWolpAgent, StaticAgent
 
-RUNS = 2
+RUNS = 5
 MAX_TRAINING_STEPS = 15
 NUM_ITERATIONS = 400
 EVAL_EPISODES = 100
@@ -95,30 +95,28 @@ def main():
     agents = [
             # ("random", create_random_agent),
             ("optimal", create_good_agent),
-            ('soft_wolpertinger_0.01_' + "(" + str(num_actions(DOC_NUM, 0.01)) + ")",
-                                                                  create_soft_wolp_agent_with_ratio(0.01,
-                                                                  action_noise=noise,
-                                                                  policy_kwargs=policy_kwargs,
-                                                                  ent_coef=0)),
-            ('wolpertinger_0.01_' + "(" + str(num_actions(DOC_NUM, 0.01)) + ")",
+            # ('soft_wolpertinger_0.01_' + "(" + str(num_actions(DOC_NUM, 0.01)) + ")",
+            #                                                       create_soft_wolp_agent_with_ratio(0.01,
+            #                                                       action_noise=noise,
+            #                                                       policy_kwargs=policy_kwargs,
+            #                                                       ent_coef=0)),
+            ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN)",
                                                                   create_wolp_agent_with_ratio(0.01,
                                                                   action_noise=noise,
                                                                   policy_kwargs=policy_kwargs,
                                                                   )),
-
-               # ('wolpertinger_0.05_' + "(" + str(num_actions(DOC_NUM, 0.05)) + ")",
-               #                                                    create_wolp_agent_with_ratio(0.05,
-               #                                                    action_noise=noise,
-               #                                                    policy_kwargs=policy_kwargs)),
-               # ('wolpertinger_0.1_' + "(" + str(num_actions(DOC_NUM, 0.1)) + ")",
-               #                                                   create_wolp_agent_with_ratio(0.1,
-               #                                                   action_noise=noise,
-               #                                                   policy_kwargs=policy_kwargs)),
-               # ('wolpertinger_1.0_' + "(" + str(num_actions(DOC_NUM, 1.0)) + ")",
-               #                                                   create_wolp_agent_with_ratio(1,
-               #                                                   action_noise=noise,
-               #                                                   policy_kwargs=policy_kwargs)),
-
+            ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.05)) + "NN)",
+                                                                 create_wolp_agent_with_ratio(0.05,
+                                                                 action_noise=noise,
+                                                                 policy_kwargs=policy_kwargs)),
+            ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.1)) + "NN)",
+                                                                 create_wolp_agent_with_ratio(0.1,
+                                                                 action_noise=noise,
+                                                                 policy_kwargs=policy_kwargs)),
+            ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN)",
+                                                                 create_wolp_agent_with_ratio(1,
+                                                                 action_noise=noise,
+                                                                 policy_kwargs=policy_kwargs)),
     ]
 
     base_dir = cleanup_dir('logs/')
