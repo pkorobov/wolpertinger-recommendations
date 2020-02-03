@@ -157,7 +157,6 @@ class SoftWolpAgent(AbstractEpisodicRecommenderAgent):
             # obs_t, action, reward, obs_tp1, done
             self.agent.replay_buffer.add(**self.current_episode)
             if self.agent.replay_buffer.can_sample(self.agent.batch_size):
-                self.learning_rate *= 0.999
                 self.agent._train_step(self.t, self.writer, self.learning_rate)
                 self.agent.sess.run(self.agent.target_update_op)
         self.current_episode = {}
