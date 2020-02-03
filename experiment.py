@@ -85,38 +85,45 @@ def main():
     )
     SEED = 1
     env.seed(SEED)
-    policy_kwargs = {'layers': [64, 64]}
+    policy_kwargs = {'layers': [32, 32]}
     # noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(DOC_NUM), sigma=0.3 * np.ones(DOC_NUM))
-    # noise = NormalActionNoise(mean=np.zeros(DOC_NUM), sigma=0.2 * np.ones(DOC_NUM))
-    noise = None
+    noise = NormalActionNoise(mean=np.zeros(DOC_NUM), sigma=0.2 * np.ones(DOC_NUM))
+    # noise = None
 
     num_actions = lambda actions, k_ratio: max(1, round(actions * k_ratio))
 
     agents = [
             # ("random", create_random_agent),
-            ("optimal", create_good_agent),
-            # ('soft_wolpertinger_0.01_' + "(" + str(num_actions(DOC_NUM, 0.01)) + ")",
-            #                                                       create_soft_wolp_agent_with_ratio(0.01,
-            #                                                       action_noise=noise,
-            #                                                       policy_kwargs=policy_kwargs,
-            #                                                       ent_coef=0)),
-            ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN)",
+            ("Optimal", create_good_agent),
+            ('Soft Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN)",
+                                                                  create_soft_wolp_agent_with_ratio(0.01,
+                                                                  action_noise=None,
+                                                                  policy_kwargs=policy_kwargs,
+                                                                  ent_coef=0.2)),
+            ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, normal noise)",
                                                                   create_wolp_agent_with_ratio(0.01,
-                                                                  action_noise=noise,
+                                                                  action_noise=NormalActionNoise(
+                                                                                mean=np.zeros(DOC_NUM),
+                                                                                sigma=0.2 * np.ones(DOC_NUM)),
                                                                   policy_kwargs=policy_kwargs,
                                                                   )),
-            ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.05)) + "NN)",
-                                                                 create_wolp_agent_with_ratio(0.05,
-                                                                 action_noise=noise,
-                                                                 policy_kwargs=policy_kwargs)),
-            ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.1)) + "NN)",
-                                                                 create_wolp_agent_with_ratio(0.1,
-                                                                 action_noise=noise,
-                                                                 policy_kwargs=policy_kwargs)),
-            ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN)",
-                                                                 create_wolp_agent_with_ratio(1,
-                                                                 action_noise=noise,
-                                                                 policy_kwargs=policy_kwargs)),
+            ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, no noise)",
+                                                                  create_wolp_agent_with_ratio(0.01,
+                                                                  action_noise=None,
+                                                                  policy_kwargs=policy_kwargs,
+                                                                  )),
+            # ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.05)) + "NN)",
+            #                                                      create_wolp_agent_with_ratio(0.05,
+            #                                                      action_noise=noise,
+            #                                                      policy_kwargs=policy_kwargs)),
+            # ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.1)) + "NN)",
+            #                                                      create_wolp_agent_with_ratio(0.1,
+            #                                                      action_noise=noise,
+            #                                                      policy_kwargs=policy_kwargs)),
+            # ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN)",
+            #                                                      create_wolp_agent_with_ratio(1,
+            #                                                      action_noise=noise,
+            #                                                      policy_kwargs=policy_kwargs)),
     ]
 
     base_dir = cleanup_dir('logs/')

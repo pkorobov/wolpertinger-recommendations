@@ -38,6 +38,7 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
             self._saver = tf.train.Saver(var_list=tf.all_variables(), max_to_keep=max_tf_checkpoints_to_keep)
 
     def begin_episode(self, observation=None):
+        self.agent._reset()
         state = self._extract_state(observation)
         return self._act(state)
 
