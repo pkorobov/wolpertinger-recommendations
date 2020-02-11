@@ -4,6 +4,6 @@ import logging
 
 SEED = 42
 
-with(open(os.environ["config_path"])) as config_file:
+with(open(os.path.join(os.environ["config_path"], "config.json"))) as config_file:
     logging.info("loading config from {}".format(os.environ["config_path"]))
     config = json.load(config_file)

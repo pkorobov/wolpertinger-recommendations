@@ -37,7 +37,7 @@ def run_experiment():
 
     session_provider = SessionProvider(clock)
     user_sampler = UserSampler(session_provider)
-    choice_model = UserChoiceModel()
+    choice_model = UserChoiceModel(clock)
     user_model = UserModel(user_sampler, slate_size, choice_model, session_provider)
 
     env = recsim_gym.RecSimGymEnv(

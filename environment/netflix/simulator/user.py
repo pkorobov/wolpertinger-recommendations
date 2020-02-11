@@ -1,10 +1,16 @@
+import os
+
 import numpy as np
 import pandas as pd
+import torch
 from gym import spaces
 from recsim import user
 from recsim.choice_model import AbstractChoiceModel
 
-from environment.netflix.model.prepare_model import find_data_parts, read_data_part
+from environment.netflix.model.attentive import AttentiveRecommender
+from environment.netflix.model.datasets import feature_movies, feature_months, feature_ratings
+from environment.netflix.model.prepare_model import find_data_parts, read_data_part, read_movie_indexes, START_DATE, END_DATE
+from environment.netflix.preprocess import Rating
 from environment.netflix.simulator.config import config, SEED
 
 
@@ -86,6 +92,7 @@ class UserState(user.AbstractUserState):
 
     def __init__(self, user_id):
         self.user_id = user_id
+        self.ratings = []
 
     def create_observation(self):
         return np.array([self.user_id])
@@ -115,12 +122,68 @@ class UserSampler(user.AbstractUserSampler):
 
 
 class UserChoiceModel(AbstractChoiceModel):
-    def __init__(self):
+
+    def __init__(self, clock):
         super(UserChoiceModel, self).__init__()
+        self.clock = clock
+        self.dataset_args = dict(movie_indexes=read_movie_indexes(config), start_date=START_DATE, end_date=END_DATE)
+
+        self.precomputed_features = {
+            "movies": feature_movies,
+            "months": feature_months,
+            "ratings": feature_ratings
+        }
+
+        self.model = AttentiveRecommender(config)
+        self.model.load_state_dict(torch.load(os.path.join(os.environ["config_path"], "model.params")))
 
     def score_documents(self, user_state, docs):
-        # Todo: apply pytorch model here
-        self._scores = np.zeros(len(docs))
+        ratings = [
+            user_state.ratings + [Rating(doc.doc_id(), 0.0, self.clock.get_current_date())]
+            for doc in docs
+        ]
+
+        precomputed = self.precompute_features(ratings)
+        featurized = self.featurize(precomputed, len(docs))
+
+        self._scores = self.model(featurized).detach().numpy()
+
+    def precompute_features(self, ratings):
+        precomputed = {}
+        for feature in config["features"]:
+            if not feature.get("precompute", False):
+                continue
+
+            feature_name = feature["name"]
+            feature_fun = self.precomputed_features[feature_name]
+            precomputed[feature_name] = [feature_fun(r, feature, **self.dataset_args) for r in ratings]
+        return precomputed
+
+    def featurize(self, data, slate_size):
+        features = []
+        for j, feature in enumerate(config["features"]):
+            if "source" in feature:
+                feature_data = self._target_data(data[feature["source"]])
+            else:
+                feature_data = self._sequence_data(data[feature["name"]])
+
+            padding = feature.get("padding", 0)
+            if padding:
+                feature_data = [self._pad_sequence(f, padding, 1) for f in feature_data]
+
+            features.append(np.array(feature_data).reshape((slate_size, -1)))
+
+        return torch.from_numpy(np.concatenate(features, axis=1)).float()
+
+    def _sequence_data(self, precomputed):
+        return [p[:-1] for p in precomputed]
+
+    def _target_data(self, precomputed):
+        return [p[-1] for p in precomputed]
+
+    def _pad_sequence(self, sequence, padding, dim):
+        pad_with = [0] * dim if dim > 1 else 0
+        return [pad_with] * (padding - len(sequence)) + sequence[-padding:]
 
     def choose_item(self):
         # Todo: sample using scores

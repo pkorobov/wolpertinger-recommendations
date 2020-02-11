@@ -4,6 +4,7 @@ import numpy as np
 from gym import spaces
 from recsim import document
 
+from environment.netflix.model.prepare_model import read_movie_indexes
 from environment.netflix.simulator.config import config, SEED
 
 
@@ -42,6 +43,7 @@ class Movie(document.AbstractDocument):
 class MovieSampler(document.AbstractDocumentSampler):
 
     def __init__(self, movie_ctor=Movie):
+        self.movie_indexes = read_movie_indexes(config)
         super(MovieSampler, self).__init__(movie_ctor, seed=SEED)
         self.movie_iter = None
 
@@ -59,5 +61,4 @@ class MovieSampler(document.AbstractDocumentSampler):
         self.movie_iter = iter(self.get_available_movies())
 
     def get_available_movies(self):
-        # Todo: get movies for current date
-        return np.arange(config["environment"]["num_movies"]) + 1
+        return self.movie_indexes.keys()
