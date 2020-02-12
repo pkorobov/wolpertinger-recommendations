@@ -133,7 +133,7 @@ class ActorNetwork(nn.Module):
 
 class DDPG:
     def __init__(self, critic_constructor, actor_constructor, state_dim,
-                 action_dim, noise=None, buffer_size=1000, hidden_dim=16, critic_criterion=nn.MSELoss(),
+                 action_dim, summary_writer=None, noise=None, buffer_size=1000, hidden_dim=16, critic_criterion=nn.MSELoss(),
                  critic_lr=1e-3, actor_lr = 1e-4, **kwargs):
 
         self.critic_net = critic_constructor(state_dim, action_dim, hidden_dim).to(device)
@@ -146,6 +146,7 @@ class DDPG:
         self.critic_optimizer = optim.Adam(self.critic_net.parameters(), lr=critic_lr)
         self.actor_optimizer = optim.Adam(self.actor_net.parameters(), lr=actor_lr)
         self.noise = noise
+        self.summary_writer = summary_writer
 
     def predict(self, state):
         action = self.actor_net.get_action(state)
@@ -158,7 +159,7 @@ class DDPG:
                gamma=0.99,
                min_value=-np.inf,
                max_value=np.inf,
-               soft_tau=1e-2,
+               soft_tau=1e-2
     ):
 
         state, action, reward, next_state, done = self.replay_buffer.sample(batch_size)
@@ -187,6 +188,10 @@ class DDPG:
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
+
+        if self.summary_writer:
+            self.summary_writer.add_scalar('loss/Actor loss', actor_loss, self.t)
+            self.summary_writer.add_scalar('loss/Critic loss', critic_loss, self.t)
 
         for target_param, param in zip(self.target_critic_net.parameters(), self.critic_net.parameters()):
             target_param.data.copy_(

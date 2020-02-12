@@ -20,16 +20,15 @@ class StaticAgent(AbstractEpisodicRecommenderAgent):
 class WolpAgent(AbstractEpisodicRecommenderAgent):
 
     def __init__(self, env, critic_constructor, actor_constructor, state_dim, action_dim,
-                 k_ratio=0.1, eval_mode=False, writer=None, **kwargs):
+                 k_ratio=0.1, eval_mode=False, **kwargs):
         AbstractEpisodicRecommenderAgent.__init__(self, env.action_space)
 
         self._observation_space = env.observation_space
         self.agent = WolpertingerAgent(critic_constructor, actor_constructor, state_dim, action_dim,
                                        env, k_ratio=k_ratio, **kwargs)
-        self.t = 0
+        self.agent.t = 0
         self.current_episode = {}
         self.eval_mode = eval_mode
-        self.writer = writer
 
     def begin_episode(self, observation=None):
         state = self._extract_state(observation)
@@ -38,7 +37,7 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
     def step(self, reward, observation):
         state = self._extract_state(observation)
         self._observe(state, reward, 0)
-        self.t += 1
+        self.agent.t += 1
         return self._act(state)
 
     def end_episode(self, reward, observation=None):

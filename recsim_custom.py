@@ -1,5 +1,7 @@
 from recsim.simulator import runner_lib
 import pandas as pd
+from tensorboardX import SummaryWriter
+from recsim.simulator import environment
 
 import os
 import time
@@ -34,10 +36,27 @@ class RunnerCustom(runner_lib.Runner):
         self._episode_log_file = None  # for the sake of turning off bloody TFWriter
         self._episode_writer = None
 
+    def _set_up(self, eval_mode):
+        self._summary_writer = SummaryWriter(self._output_dir)
+        self._sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+        self._agent = self._create_agent_fn(
+            self._sess,
+            self._env,
+            summary_writer=self._summary_writer,
+            eval_mode=eval_mode)
+        # type check: env/agent must both be multi- or single-user
+        if self._agent.multi_user and not isinstance(
+                self._env.environment, environment.MultiUserEnvironment):
+            raise ValueError('Multi-user agent requires multi-user environment.')
+        if not self._agent.multi_user and isinstance(
+                self._env.environment, environment.MultiUserEnvironment):
+            raise ValueError('Single-user agent requires single-user environment.')
+
     def _log_one_step(self, user_obs, doc_obs, slate, responses, reward,
                       is_terminal, log_df):
         row = [self.episode_num, user_obs[0], slate[0], reward, is_terminal]
-        log_df.loc[len(log_df)] = row
+        # uncomment and fix
+        # log_df.loc[len(log_df)] = row
 
     def _run_one_episode(self):
         """Executes a full trajectory of the agent interacting with the environment.
@@ -94,22 +113,10 @@ class RunnerCustom(runner_lib.Runner):
 
     def _write_metrics(self, step, suffix):
         """Writes the metrics to Tensorboard summaries."""
-
-        def add_summary(tag, value):
-            summary = tf.compat.v1.Summary(value=[
-                tf.compat.v1.Summary.Value(
-                    tag=tag + '/' + suffix, simple_value=value)
-            ])
-            self._summary_writer.add_summary(summary, step)
-
         num_steps = np.sum(self._stats['episode_length'])
         time_per_step = np.sum(self._stats['episode_time']) / num_steps
-
-        add_summary('AverageEpisodeLength', np.mean(self._stats['episode_length']))
-        add_summary('AverageEpisodeRewards', np.mean(self._stats['episode_reward']))
-
-        # Environment-specific Tensorboard summaries.
-        self._env.write_metrics(add_summary)
+        self._summary_writer.add_scalar('AverageEpisodeRewards', np.mean(self._stats['episode_reward']), step)
+        # self._summary_writer.add_scalar('AverageEpisodeLength', np.mean(self._stats['episode_length']), step)
         self._summary_writer.flush()
 
 

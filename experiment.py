@@ -47,9 +47,8 @@ def create_wolp_agent_with_ratio(k_ratio=0.1, policy_kwargs=None, action_noise=N
 
     def create_wolp_agent(sess, environment, eval_mode, summary_writer=None):
         return WolpAgent(environment, action_space=environment.action_space,
-                         k_ratio=k_ratio, policy_kwargs=policy_kwargs,
-                         action_noise=action_noise, eval_mode=eval_mode,
-                         writer=summary_writer, full_tensorboard_log=True, **kwargs)
+                         k_ratio=k_ratio, action_noise=action_noise, summary_writer=summary_writer,
+                         eval_mode=eval_mode, **kwargs)
     return create_wolp_agent
 
 

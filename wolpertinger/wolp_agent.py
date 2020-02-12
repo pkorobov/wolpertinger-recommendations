@@ -49,7 +49,7 @@ class WolpertingerAgent(DDPG):
     def predict(self, state):
 
         proto_action = super().predict(state)
-        proto_action = np.clip(proto_action, -1, 1)
+        # proto_action = np.clip(proto_action, -1, 1)
 
         actions = self.knn_search.search_point(proto_action, self.k)[0]  # the nearest neighbour actions
         states = np.tile(state, [len(actions), 1])  # make all the state-action pairs for the critic
