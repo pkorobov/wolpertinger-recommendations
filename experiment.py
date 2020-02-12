@@ -5,21 +5,21 @@ from recsim.agents import full_slate_q_agent
 from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import recsim_gym, environment
 from recsim_custom import EvalRunnerCustom, TrainRunnerCustom
-from stable_baselines.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise, AdaptiveParamNoiseSpec
+from base.ddpg import GaussNoise, CriticNetwork, ActorNetwork
 from stable_baselines.common import set_global_seeds
-import tensorflow as tf
-import numpy as np
 
+import numpy as np
 import random
 import os
 from environment import *
-from agent import WolpAgent, SoftWolpAgent, StaticAgent
+from agent import WolpAgent, StaticAgent
 
 RUNS = 5
 MAX_TRAINING_STEPS = 15
 NUM_ITERATIONS = 400
 EVAL_EPISODES = 100
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
+
 
 def create_random_agent(sess, environment, eval_mode, summary_writer=None):
     return RandomAgent(environment.action_space, random_seed=SEED)
@@ -46,25 +46,11 @@ def create_dqn_agent(sess, environment, eval_mode, summary_writer=None):
 def create_wolp_agent_with_ratio(k_ratio=0.1, policy_kwargs=None, action_noise=None, **kwargs):
 
     def create_wolp_agent(sess, environment, eval_mode, summary_writer=None):
-        # action_noise_ = None if eval_mode else action_noise
         return WolpAgent(environment, action_space=environment.action_space,
                          k_ratio=k_ratio, policy_kwargs=policy_kwargs,
                          action_noise=action_noise, eval_mode=eval_mode,
                          writer=summary_writer, full_tensorboard_log=True, **kwargs)
-
     return create_wolp_agent
-
-
-def create_soft_wolp_agent_with_ratio(k_ratio=0.1, policy_kwargs=None, action_noise=None, **kwargs):
-
-    def create_soft_wolp_agent(sess, environment, eval_mode, summary_writer=None):
-        # action_noise_ = None if eval_mode else action_noise
-        return SoftWolpAgent(environment, action_space=environment.action_space,
-                         k_ratio=k_ratio, policy_kwargs=policy_kwargs,
-                         action_noise=action_noise, eval_mode=eval_mode,
-                         writer=summary_writer, full_tensorboard_log=True, **kwargs)
-
-    return create_soft_wolp_agent
 
 
 def cleanup_dir(dir_path):
@@ -73,6 +59,7 @@ def cleanup_dir(dir_path):
         shutil.rmtree(dir_path)
     os.makedirs(dir_path)
     return dir_path
+
 
 def main():
     """
@@ -85,45 +72,16 @@ def main():
     )
     SEED = 1
     env.seed(SEED)
-    policy_kwargs = {'layers': [32, 32]}
-    # noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(DOC_NUM), sigma=0.3 * np.ones(DOC_NUM))
-    noise = NormalActionNoise(mean=np.zeros(DOC_NUM), sigma=0.2 * np.ones(DOC_NUM))
-    # noise = None
+    noise = GaussNoise(sigma=0.2 * np.ones(DOC_NUM))
 
     num_actions = lambda actions, k_ratio: max(1, round(actions * k_ratio))
 
     agents = [
-            # ("random", create_random_agent),
-            ("Optimal", create_good_agent),
-            ('Soft Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN)",
-                                                                  create_soft_wolp_agent_with_ratio(0.01,
-                                                                  action_noise=None,
-                                                                  policy_kwargs=policy_kwargs,
-                                                                  ent_coef=0.2)),
-            ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, normal noise)",
-                                                                  create_wolp_agent_with_ratio(0.01,
-                                                                  action_noise=NormalActionNoise(
-                                                                                mean=np.zeros(DOC_NUM),
-                                                                                sigma=0.2 * np.ones(DOC_NUM)),
-                                                                  policy_kwargs=policy_kwargs,
-                                                                  )),
-            ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, no noise)",
-                                                                  create_wolp_agent_with_ratio(0.01,
-                                                                  action_noise=None,
-                                                                  policy_kwargs=policy_kwargs,
-                                                                  )),
-            # ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.05)) + "NN)",
-            #                                                      create_wolp_agent_with_ratio(0.05,
-            #                                                      action_noise=noise,
-            #                                                      policy_kwargs=policy_kwargs)),
-            # ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.1)) + "NN)",
-            #                                                      create_wolp_agent_with_ratio(0.1,
-            #                                                      action_noise=noise,
-            #                                                      policy_kwargs=policy_kwargs)),
-            # ('wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN)",
-            #                                                      create_wolp_agent_with_ratio(1,
-            #                                                      action_noise=noise,
-            #                                                      policy_kwargs=policy_kwargs)),
+                ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, normal noise)",
+                  create_wolp_agent_with_ratio(0.01, critic_constructor=CriticNetwork,
+                                               actor_constructor=ActorNetwork, action_dim=DOC_NUM,
+                                               state_dim=DOC_NUM, action_noise=noise)),
+                ("Optimal", create_good_agent)
     ]
 
     base_dir = cleanup_dir('logs/')
@@ -144,16 +102,6 @@ def main():
                 max_training_steps=MAX_TRAINING_STEPS,
                 num_iterations=NUM_ITERATIONS,
                 episode_log_file='episodes_log_train.csv'
-            )
-            runner.run_experiment()
-
-            runner = EvalRunnerCustom(
-                base_dir=dir,
-                create_agent_fn=create_agent_fun,
-                env=env,
-                max_eval_episodes=EVAL_EPISODES,
-                test_mode=True,
-                episode_log_file='episodes_log_eval.csv'
             )
             runner.run_experiment()
 
