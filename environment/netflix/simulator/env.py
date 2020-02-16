@@ -98,5 +98,5 @@ class NetflixEnvironment(SingleUserEnvironment):
 
 
 def ratings_reward(responses):
-    return np.sum([response.rating for response in responses])
+    return np.sum([response.rating for response in responses if response.rating is not None])
 
