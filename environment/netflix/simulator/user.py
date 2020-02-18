@@ -219,7 +219,8 @@ class UserModel(user.AbstractUserModel):
         selected_index = self.choice_model.choose_item()
 
         if selected_index is not None:
-            responses[selected_index].rating = self.choice_model.scores[selected_index]
+            selected_item_score = self.choice_model.scores[selected_index]
+            responses[selected_index].rating = np.round((1.0 + selected_item_score) * 2.0) + 1
 
         return responses
 
@@ -228,8 +229,7 @@ class UserModel(user.AbstractUserModel):
             if response.rating is None:
                 continue
             movie_id = slate_documents[j]
-            rating = int((1.0 + response.rating) * 2.0) + 1
-            self._user_state.update(movie_id, rating, self.session_provider.get_current_date())
+            self._user_state.update(movie_id, response.rating, self.session_provider.get_current_date())
 
         if self.session_provider.has_next_date():
             self.session_provider.to_next_date()

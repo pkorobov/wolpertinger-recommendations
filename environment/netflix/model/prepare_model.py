@@ -38,7 +38,7 @@ def setup_logging():
 
 def run_experiment(experiment_dir, experiment, regime):
     config_dir = os.path.join(experiment_dir, experiment)
-    config_path = os.path.join(config_dir, experiment + ".json")
+    config_path = os.path.join(config_dir, "config.json")
     logging.info("Start experiment: " + experiment)
 
     with(open(config_path)) as config_file:

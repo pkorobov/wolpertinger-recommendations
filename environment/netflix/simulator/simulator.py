@@ -5,15 +5,12 @@ import shutil
 from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import recsim_gym, runner_lib
 
+from environment.netflix.simulator.agent import LoggingAgentWrapper
 from environment.netflix.simulator.document import MovieSampler
 from environment.netflix.simulator.env import NetflixEnvironment, ratings_reward, Clock
 from environment.netflix.simulator.user import SessionProvider, UserSampler, UserModel, UserChoiceModel
 
 from environment.netflix.preprocess import Rating
-
-
-def create_random_agent(sess, environment, eval_mode, summary_writer=None):
-    return RandomAgent(environment.action_space, random_seed=42)
 
 
 def setup_logging():
@@ -51,6 +48,9 @@ def run_experiment():
         ratings_reward
     )
 
+    def create_random_agent(sess, environment, eval_mode, summary_writer=None):
+        return LoggingAgentWrapper(environment.action_space, RandomAgent(environment.action_space, random_seed=42), clock)
+
     agents = [
         ("random", create_random_agent)
     ]
@@ -65,10 +65,12 @@ def run_experiment():
             base_dir=base_dir,
             create_agent_fn=create_agent_fun,
             env=env,
-            max_training_steps=100,
-            num_iterations=100
+            max_training_steps=1000,
+            num_iterations=200
         )
         runner.run_experiment()
+
+        runner._agent.write_logged_data("experiments/logged_" + agent_name + ".pkl")
 
 
 def main():
