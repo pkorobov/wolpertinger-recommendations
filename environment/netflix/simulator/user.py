@@ -12,6 +12,7 @@ from environment.netflix.model.datasets import feature_movies, feature_months, f
 from environment.netflix.model.prepare_model import find_data_parts, read_data_part, read_movie_indexes, START_DATE, END_DATE
 from environment.netflix.preprocess import Rating
 from environment.netflix.simulator.config import config, SEED
+from environment.netflix.simulator.document import Movie
 
 
 def read_data():
@@ -51,28 +52,49 @@ class SessionProvider(object):
 
         self.current_user = None
         self.user_states = {}
+        self.init_ratings = config["environment"]["init_ratings"]
 
         self.current_session_dates = None
         self.current_date_index = None
 
     def reset(self):
-        print("Resetting session provider")
+        print("Init user states")
+        for user_id, ratings in self.data["ratings"].items():
+            if user_id in self.user_states:
+                raise ValueError("State for user {} already exists".format(user_id))
+            self.user_states[user_id] = self.init_state(user_id, ratings)
+        print("Created {} user states".format(len(self.user_states)))
+
+        print("Init sessions")
         sessions = []
         for user_id, user_sessions in self.data["ratings"].map(self.sessionize).items():
             for session in user_sessions:
                 sessions.append((user_id, session))
-        print("Sessions found: {}".format(len(sessions)))
+        print("Found {} sessions".format(len(sessions)))
 
         self.sessions_iter = iter(sorted(sessions, key=lambda user_session: user_session[1][0]))
         self.to_next_session()
 
+    def init_state(self, user_id, ratings):
+        state = UserState(user_id)
+        for j, rating in enumerate(ratings):
+            if j == self.init_ratings:
+                break
+            state.update(Movie(rating.movie_id), rating.rating, rating.date)
+        return state
+
     def sessionize(self, ratings):
         current_session = []
-        for rating in ratings:
+        for j, rating in enumerate(ratings):
+            if j < self.init_ratings:
+                continue
+
             if current_session and (rating.date - current_session[-1]).days > self.max_interval_days:
                 yield current_session
                 current_session = []
+
             current_session.append(rating.date)
+
         if current_session:
             yield current_session
 

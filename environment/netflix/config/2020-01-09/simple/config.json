@@ -143,6 +143,7 @@
   "environment": {
     "num_movies": 17770,
     "num_users": 50000,
-    "partitions": 1
+    "partitions": 1,
+    "init_ratings": 3
   }
 }

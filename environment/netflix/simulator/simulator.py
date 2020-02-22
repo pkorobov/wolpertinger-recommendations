@@ -66,7 +66,7 @@ def run_experiment():
             create_agent_fn=create_agent_fun,
             env=env,
             max_training_steps=1000,
-            num_iterations=200
+            num_iterations=20
         )
         runner.run_experiment()
 
