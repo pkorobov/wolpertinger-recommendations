@@ -180,7 +180,7 @@ def main():
 
     logging.info("Preprocessing data for experiment " + args.experiment)
 
-    config = json.load(open(os.path.join(args.experiment_dir, args.experiment, args.experiment + ".json")))
+    config = json.load(open(os.path.join(args.experiment_dir, args.experiment, "config.json")))
 
     raw_data_dir = config["input"]["raw"]["dir"]
     data_file_paths = [os.path.join(raw_data_dir, raw_data_file) for raw_data_file in os.listdir(raw_data_dir) if raw_data_file.startswith(config["input"]["raw"]["prefix"])]

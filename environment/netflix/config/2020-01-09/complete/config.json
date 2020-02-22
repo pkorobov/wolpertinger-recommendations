@@ -1,0 +1,150 @@
+{
+  "input": {
+    "raw": {
+      "dir": "/mnt/data/users/n.anokhin/netflix/raw/",
+      "prefix": "combined"
+    },
+    "processed": {
+      "dir": "/mnt/data/users/n.anokhin/netflix/processed/",
+      "prefix": "partition",
+      "partitions": 40
+    }
+  },
+  "features": [
+    {
+      "name": "movie",
+      "source": "movies",
+      "module_name": "movies",
+      "components": [
+        "predictor",
+        "attention-query"
+      ],
+      "encoding": "embedding",
+      "num_embeddings": 17771,
+      "embedding_dim": 128
+    },
+    {
+      "name": "month",
+      "source": "months",
+      "module_name": "months",
+      "components": [
+        "predictor",
+        "attention-query"
+      ],
+      "encoding": "embedding",
+      "num_embeddings": 75,
+      "embedding_dim": 8
+    },
+    {
+      "name": "movies",
+      "components": [
+        "attention-key",
+        "attention-value"
+      ],
+      "encoding": "embedding",
+      "num_embeddings": 17771,
+      "embedding_dim": 128,
+      "padding": 30,
+      "remove_target": "target-and-after",
+      "precompute": true
+    },
+    {
+      "name": "months",
+      "components": [
+        "attention-key",
+        "attention-value"
+      ],
+      "encoding": "embedding",
+      "num_embeddings": 75,
+      "embedding_dim": 8,
+      "padding": 30,
+      "remove_target": "target-and-after",
+      "precompute": true
+    },
+    {
+      "name": "ratings",
+      "components": [
+        "attention-key",
+        "attention-value"
+      ],
+      "encoding": "numeric",
+      "padding": 30,
+      "remove_target": "target-and-after",
+      "precompute": true
+    }
+  ],
+  "target": {
+    "name": "rating",
+    "source": "ratings"
+  },
+  "model": {
+    "predictor": {
+      "layers": [
+        {
+          "out_features": 50,
+          "activation": "tanh"
+        },
+        {
+          "out_features": 25,
+          "activation": "tanh"
+        },
+        {
+          "out_features": 10,
+          "activation": "tanh"
+        },
+        {
+          "out_features": 1
+        }
+      ]
+    },
+    "attention": {
+      "layers": [
+        {
+          "out_features": 50,
+          "activation": "tanh"
+        },
+        {
+          "out_features": 25,
+          "activation": "tanh"
+        },
+        {
+          "out_features": 10,
+          "activation": "tanh"
+        },
+        {
+          "out_features": 1,
+          "activation": "tanh"
+        }
+      ]
+    }
+  },
+  "training": {
+    "partitions": 40,
+    "loss": "mse",
+    "num_epochs": 10,
+    "batch_size": 256,
+    "learning_rate": 0.001,
+    "min_learning_rate": 1e-06,
+    "learning_rate_decay": 0.1,
+    "loss_smoothing_epochs": 10,
+    "validation_fraction": 0.2
+  },
+  "evaluation": {
+    "partitions": 1,
+    "bootstrap_samples": 5,
+    "metrics": [
+      {
+        "metric": "loss",
+        "mean": 0.016235672041792416,
+        "upper": 0.01642093657516331,
+        "lower": 0.015983378486285008
+      }
+    ]
+  },
+  "environment": {
+    "num_movies": 17770,
+    "num_users": 50000,
+    "partitions": 1,
+    "init_ratings": 3
+  }
+}

@@ -1,7 +1,5 @@
 import os
 
-import dateutil as du
-
 
 def ensure_dir(path):
     os.makedirs(path, exist_ok=True)
@@ -9,5 +7,4 @@ def ensure_dir(path):
 
 
 def months_between(date1, date2):
-    r = du.relativedelta.relativedelta(date2, date1)
-    return r.months + (12 * r.years)
+    return int((date2 - date1).days / 31)

@@ -31,7 +31,7 @@ class NetflixDataset(td.Dataset):
 def feature_movies(ratings, feature, **kwargs):
     movie_indexes = kwargs["movie_indexes"]
     oov_index = feature["num_embeddings"] - 1
-    return [movie_indexes.get(r.movie_id, oov_index - 1) for r in ratings]
+    return [movie_indexes.get(r.movie_id, oov_index) for r in ratings]
 
 
 def feature_months(ratings, feature, **kwargs):
@@ -40,6 +40,6 @@ def feature_months(ratings, feature, **kwargs):
 
 
 def feature_ratings(ratings, feature, **kwargs):
-    min_rating = 1
-    max_rating = 5
+    min_rating = 1.0
+    max_rating = 5.0
     return [2.0 * (r.rating - (min_rating + max_rating) / 2) / (max_rating - min_rating) for r in ratings]
