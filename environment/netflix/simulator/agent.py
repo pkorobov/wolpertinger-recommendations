@@ -26,7 +26,7 @@ class LoggingAgentWrapper(agent.AbstractEpisodicRecommenderAgent):
         return self.slate
 
     def step(self, reward, observation):
-        self._log_rating(observation["response"])
+        self.log_rating(observation["response"])
 
         self.user = observation["user"][0]
         self.date = self.clock.get_current_date()
@@ -35,15 +35,15 @@ class LoggingAgentWrapper(agent.AbstractEpisodicRecommenderAgent):
         return self.slate
 
     def end_episode(self, reward, observation=None):
-        self._log_rating(observation["response"])
+        self.log_rating(observation["response"])
         self.logged_data[self.user] += self.episode_ratings
         self.episode_ratings = []
 
-    def _log_rating(self, responses):
+    def log_rating(self, responses):
         for j, movie in enumerate(self.slate):
-            if responses[j] is None:
-                self.episode_ratings += Rating(movie, responses[j].rating, self.date)
+            if responses[j][0] is not None:
+                self.episode_ratings += [Rating(movie, responses[j][0], self.date)]
 
     def write_logged_data(self, path):
-        data = pd.DataFrame(self.logged_data)
+        data = pd.Series(self.logged_data).to_frame("ratings")
         pd.to_pickle(data, path)
