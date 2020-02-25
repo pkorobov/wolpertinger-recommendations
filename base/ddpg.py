@@ -160,17 +160,20 @@ class Actor(nn.Module):
 class DDPG:
     def __init__(self, state_dim, action_dim, summary_writer=None, noise=None,
                  buffer_size=10000, hidden_dim=16, critic_lr=1e-3,
-                 actor_lr=1e-4, soft_tau=1e-3, batch_size=128, gamma=0.99, **kwargs):
+                 actor_lr=1e-4, soft_tau=1e-3, batch_size=128,
+                 gamma=0.99, actor_weight_decay=0., critic_weight_decay=0., **kwargs):
 
         self.actor = Actor(state_dim, action_dim, hidden_dim).to(device)
         self.actor_target = copy.deepcopy(self.actor)
         # self.actor_optimizer = AdamCustom(self.actor.parameters(), lr=actor_lr)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=actor_lr)
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(),
+                                                lr=actor_lr, weight_decay=actor_weight_decay)
 
         self.critic = Critic(state_dim, action_dim, hidden_dim).to(device)
         self.critic_target = copy.deepcopy(self.critic)
         # self.critic_optimizer = AdamCustom(self.critic.parameters(), lr=critic_lr)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_lr)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(),
+                                                 lr=critic_lr, weight_decay=critic_weight_decay)
 
         self.action_dim = action_dim
         self.replay_buffer = ReplayBuffer(buffer_size)

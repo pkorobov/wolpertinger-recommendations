@@ -96,8 +96,9 @@ def main():
                   'soft_tau': 1e-3,
                   'hidden_dim': 256,
                   'batch_size': 128,
-                  'buffer_size': 10000,
-                  'gamma': 0.8}
+                  'buffer_size': 20000,
+                  'gamma': 0.8,
+                  'actor_weight_decay': 0.01}
 
     agents = [
                 # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, normal noise)",
