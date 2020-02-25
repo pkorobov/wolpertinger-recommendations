@@ -41,5 +41,4 @@ def feature_months(ratings, feature, **kwargs):
 
 def feature_ratings(ratings, feature, **kwargs):
     min_rating = 1.0
-    max_rating = 5.0
-    return [2.0 * (r.rating - (min_rating + max_rating) / 2) / (max_rating - min_rating) for r in ratings]
+    return [r.rating - min_rating for r in ratings]

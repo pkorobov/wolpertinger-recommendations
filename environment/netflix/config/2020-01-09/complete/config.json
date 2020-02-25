@@ -44,7 +44,7 @@
       "encoding": "embedding",
       "num_embeddings": 17771,
       "embedding_dim": 128,
-      "padding": 30,
+      "padding": 50,
       "remove_target": "target-and-after",
       "precompute": true
     },
@@ -57,7 +57,7 @@
       "encoding": "embedding",
       "num_embeddings": 75,
       "embedding_dim": 8,
-      "padding": 30,
+      "padding": 50,
       "remove_target": "target-and-after",
       "precompute": true
     },
@@ -67,8 +67,10 @@
         "attention-key",
         "attention-value"
       ],
-      "encoding": "numeric",
-      "padding": 30,
+      "encoding": "embedding",
+      "num_embeddings": 5,
+      "embedding_dim": 3,
+      "padding": 50,
       "remove_target": "target-and-after",
       "precompute": true
     }
@@ -93,7 +95,7 @@
           "activation": "tanh"
         },
         {
-          "out_features": 1
+          "out_features": 5
         }
       ]
     },
@@ -112,15 +114,14 @@
           "activation": "tanh"
         },
         {
-          "out_features": 1,
-          "activation": "tanh"
+          "out_features": 1
         }
       ]
     }
   },
   "training": {
     "partitions": 40,
-    "loss": "mse",
+    "loss": "softmax",
     "num_epochs": 10,
     "batch_size": 256,
     "learning_rate": 0.001,

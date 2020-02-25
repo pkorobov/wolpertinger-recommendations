@@ -67,7 +67,9 @@
         "attention-key",
         "attention-value"
       ],
-      "encoding": "numeric",
+      "encoding": "embedding",
+      "num_embeddings": 5,
+      "embedding_dim": 3,
       "padding": 10,
       "remove_target": "target-and-after",
       "precompute": true
@@ -93,7 +95,7 @@
           "activation": "tanh"
         },
         {
-          "out_features": 1
+          "out_features": 5
         }
       ]
     },
@@ -119,7 +121,7 @@
   },
   "training": {
     "partitions": 1,
-    "loss": "mse",
+    "loss": "softmax",
     "num_epochs": 10,
     "batch_size": 16,
     "learning_rate": 0.001,
@@ -134,9 +136,9 @@
     "metrics": [
       {
         "metric": "loss",
-        "mean": 0.016255133486648043,
-        "upper": 0.01643823642158002,
-        "lower": 0.016003489988525924
+        "mean": 0.08162353953635974,
+        "upper": 0.08208018835114221,
+        "lower": 0.08108870160425767
       }
     ]
   },

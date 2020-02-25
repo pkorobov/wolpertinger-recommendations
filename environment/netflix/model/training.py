@@ -26,6 +26,8 @@ def initialize(model):
 def pick_loss(config):
     if config["training"]["loss"] == "mse":
         return nn.MSELoss()
+    if config["training"]["loss"] == "softmax":
+        return nn.CrossEntropyLoss()
     else:
         raise ValueError()
 
