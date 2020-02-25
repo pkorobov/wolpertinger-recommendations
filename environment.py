@@ -11,7 +11,7 @@ np.random.seed(SEED)
 # W = np.array([[.100, .800],
 #               [.050, .900]])
 
-DOC_NUM = 49
+DOC_NUM = 10
 W = np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
 
 MOST_POPULAR = 6

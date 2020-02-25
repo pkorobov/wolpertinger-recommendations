@@ -5,9 +5,14 @@ from matplotlib import pyplot as plt
 import matplotlib as mpl
 import os
 from tqdm import tqdm
+import argparse
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--path', default='logs')
+args = parser.parse_args()
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=['orange', 'green', 'red', 'blue', 'gray'])
 plt.rcParams['axes.grid'] = True
+
 
 def _load_run(path):
     event_acc = event_accumulator.EventAccumulator(path)
@@ -23,71 +28,34 @@ def _load_run(path):
     return data
 
 
-logdir = "logs"
-runs = pd.DataFrame()
-fig, ax = plt.subplots(2, len(os.listdir(logdir)), figsize=(24, 8), sharey=True)
-plt.xlabel('Iterations')
-plt.ylabel('Mean episode reward')
-for i, agent in enumerate(os.listdir(logdir)):
-    print("Train rewards of %s" % agent)
-    runs_num = len(os.listdir(logdir + '/' + agent))
-    for j in tqdm(range(runs_num)):
-        cur_run = pd.Series(_load_run(logdir + '/' + agent + "/run_%s/train" % j)['AverageEpisodeRewards/train'][1])
-        runs['run_%s' % j] = cur_run
-    means = runs.mean(axis=1)
-    stds = runs.std(axis=1)
-    ax[0, i].plot(means.index, means, label=agent, alpha=0.7)
-    ax[0, i].fill_between(means.index, means - stds, means + stds, alpha=0.4)
-    ax[0, i].legend()
+def plot_averaged_runs(logdir=args.path, averaging=True):
 
-# runs = pd.DataFrame()
-# plt.xlabel('Iterations')
-# plt.ylabel('Episode reward')
-# for i, agent in enumerate(os.listdir(logdir)):
-#     print("Eval rewards of %s" % agent)
-#     runs_num = len(os.listdir(logdir + '/' + agent))
-#     for j in tqdm(range(runs_num)):
-#         cur_run = pd.Series(_load_run(logdir + '/' + agent + "/run_%s/eval_100" % j)['AverageEpisodeRewards/eval'][1])
-#         runs['run_%s' % j] = cur_run
-#     means = runs.mean(axis=1)
-#     stds = runs.std(axis=1)
-#     ax[1, i].plot(means.index, means, label=agent, alpha=0.7)
-#     ax[1, i].fill_between(means.index, means - stds, means + stds, alpha=0.4)
-#     ax[1, i].legend()
-# plt.setp(ax, ylim=(-5, 30))
-# plt.savefig('averaged_agents.png')
+    runs = pd.DataFrame()
 
-runs = pd.DataFrame()
-fig, ax = plt.subplots(2, len(os.listdir(logdir)), figsize=(24, 8), sharey=False)
-plt.xlabel('Iterations')
-plt.ylabel('Mean episode reward')
-for i, agent in enumerate(os.listdir(logdir)):
-    print("Train rewards of %s" % agent)
-    runs_num = len(os.listdir(logdir + '/' + agent))
-    for j in tqdm(range(runs_num)):
-        cur_run = pd.Series(_load_run(logdir + '/' + agent + "/run_%s/train" % j)['AverageEpisodeRewards/train'][1])
-        runs['run_%s' % j] = cur_run
-    runs_rolling = runs.rolling(window=30).mean()
-    means = runs_rolling.mean(axis=1)
-    stds = runs_rolling.std(axis=1)
-    ax[0, i].plot(means.index, means, label=agent, alpha=0.7)
-    ax[0, i].fill_between(means.index, means - stds, means + stds, alpha=0.4)
-    ax[0, i].legend()
+    agent_dirs = sorted([*filter(lambda x: os.path.isdir(logdir + '/' + x) and x[0] != '.', os.listdir(logdir))])
+    agent_dirs = sorted(agent_dirs, key=len)
+    fig, ax = plt.subplots(1, len(agent_dirs), figsize=(len(agent_dirs) * 8, 8))
+    plt.xlabel('Iterations')
+    plt.ylabel('Mean episode reward')
+    for i, agent in enumerate(agent_dirs):
+        agent_path = logdir + '/' + agent
+        if os.path.isdir(agent_path):
+            runs_num = len([*filter(lambda x: os.path.isdir(agent_path + '/' + x) and x[0] != '.', os.listdir(agent_path))])
+        else:
+            continue
+        print("Train rewards of %s" % agent)
+        for j in tqdm(range(runs_num)):
+            cur_run = pd.Series(_load_run(agent_path + "/run_%s/train" % j)['AverageEpisodeRewards'][1])
+            runs['run_%s' % j] = cur_run
+        if averaging:
+            runs = runs.rolling(window=30).mean()
+        means = runs.mean(axis=1)
+        stds = runs.std(axis=1)
+        ax[i].plot(means.index, means, label=agent, alpha=1.0)
+        ax[i].fill_between(means.index, means - stds, means + stds, alpha=0.5)
+        ax[i].legend()
+    plt.setp(ax, ylim=(-5, 30))
+    plt.savefig(logdir + '/averaged_agents.png')
 
-
-
-# for i, agent in enumerate(os.listdir(logdir)):
-#     print("Eval rewards of %s" % agent)
-#     runs_num = len(os.listdir(logdir + '/' + agent))
-#     for j in tqdm(range(runs_num)):
-#         cur_run = pd.Series(_load_run(logdir + '/' + agent + "/run_%s/eval_100" % j)['AverageEpisodeRewards/eval'][1])
-#         runs['run_%s' % j] = cur_run
-#     runs_rolling = runs.rolling(window=30).mean()
-#     means = runs_rolling.mean(axis=1)
-#     stds = runs_rolling.std(axis=1)
-#     ax[1, i].plot(means.index, means, label=agent, alpha=0.7)
-#     ax[1, i].fill_between(means.index, means - stds, means + stds, alpha=0.4)
-#     ax[1, i].legend()
-
-plt.setp(ax, ylim=(-5, 30))
-plt.savefig('averaged_agents_MA.png')
+if __name__ == '__main__':
+    plot_averaged_runs(args.path)

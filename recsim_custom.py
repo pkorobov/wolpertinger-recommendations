@@ -1,7 +1,13 @@
 from recsim.simulator import runner_lib
+import recsim
+
 import pandas as pd
 from tensorboardX import SummaryWriter
-from recsim.simulator import environment
+import environment
+from environment import DOC_NUM
+from base.ddpg import GaussNoise
+
+import numpy as np
 
 import os
 import time
@@ -46,17 +52,16 @@ class RunnerCustom(runner_lib.Runner):
             eval_mode=eval_mode)
         # type check: env/agent must both be multi- or single-user
         if self._agent.multi_user and not isinstance(
-                self._env.environment, environment.MultiUserEnvironment):
+                self._env.environment, recsim.simulator.environment.MultiUserEnvironment):
             raise ValueError('Multi-user agent requires multi-user environment.')
         if not self._agent.multi_user and isinstance(
-                self._env.environment, environment.MultiUserEnvironment):
+                self._env.environment, recsim.simulator.environment.MultiUserEnvironment):
             raise ValueError('Single-user agent requires single-user environment.')
 
     def _log_one_step(self, user_obs, doc_obs, slate, responses, reward,
                       is_terminal, log_df):
-        row = [self.episode_num, user_obs[0], slate[0], reward, is_terminal]
-        # uncomment and fix
-        # log_df.loc[len(log_df)] = row
+        row = [self.episode_num, user_obs[0], slate[0], reward]
+        log_df.loc[len(log_df)] = row
 
     def _run_one_episode(self):
         """Executes a full trajectory of the agent interacting with the environment.
@@ -69,7 +74,7 @@ class RunnerCustom(runner_lib.Runner):
 
         start_time = time.time()
 
-        log_df = pd.DataFrame(columns=['episode', 'state', 'recommendation', 'reward', 'is terminal'])
+        log_df = pd.DataFrame(columns=['episode', 'state', 'recommendation', 'reward'])
         observation = self._env.reset()
         action = self._agent.begin_episode(observation)
 
@@ -122,10 +127,61 @@ class RunnerCustom(runner_lib.Runner):
 
 class TrainRunnerCustom(runner_lib.TrainRunner, RunnerCustom):
     def __init__(self, max_training_steps=250000, num_iterations=100,
-               checkpoint_frequency=1, **kwargs):
+                 checkpoint_frequency=1, experiment_type="dynamic_change",
+                 change_freq=100, seed=1, **kwargs):
         runner_lib.TrainRunner.__init__(self, max_training_steps=max_training_steps,
                                         num_iterations=num_iterations,
-                                        checkpoint_frequency=checkpoint_frequency, **kwargs)
+                                        checkpoint_frequency=checkpoint_frequency,
+                                        **kwargs)
+        self.experiment_type = experiment_type
+        self.change_freq = change_freq
+
+        np.random.seed(seed)
+
+        global SECOND_POPULAR, FIRST_POPULAR
+        if self.experiment_type == "alternating_most_acceptable" or \
+           self.experiment_type == "static_dominant":
+            environment.W = np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
+            environment.MOST_POPULAR = 6
+            environment.W[:, environment.MOST_POPULAR] = np.random.uniform(0.9, 1.0, DOC_NUM)
+        if self.experiment_type == "alternating_pair":
+            environment.W = np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
+            FIRST_POPULAR = 6
+            SECOND_POPULAR = 47
+            environment.W[:, FIRST_POPULAR] = np.random.uniform(0.8, 0.9, DOC_NUM)
+            environment.W[:, SECOND_POPULAR] = np.random.uniform(0.6, 0.7, DOC_NUM)
+            environment.W[FIRST_POPULAR, FIRST_POPULAR] = np.random.uniform(0.4, 0.5)
+            environment.W[SECOND_POPULAR, SECOND_POPULAR] = np.random.uniform(0.2, 0.3)
+            environment.W[FIRST_POPULAR, SECOND_POPULAR] = np.random.uniform(0.9, 1.0)
+        if self.experiment_type == "shift":
+            environment.W = np.diag(np.random.uniform(0.8, 0.9, DOC_NUM))
+            environment.W += (np.ones((DOC_NUM, DOC_NUM)) - np.eye(DOC_NUM)) * np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
+            environment.W = np.roll(environment.W, 1, axis=1)
+            print(environment.W)
+
+    def run_experiment(self):
+        """Runs a full experiment, spread over multiple iterations."""
+        tf.logging.info('Beginning training...')
+        start_iter, total_steps = self._initialize_checkpointer_and_maybe_resume(
+            self._checkpoint_file_prefix)
+        if self._num_iterations <= start_iter:
+            tf.logging.warning('num_iterations (%d) < start_iteration(%d)',
+                               self._num_iterations, start_iter)
+            return
+
+        for iteration in range(start_iter, self._num_iterations):
+
+            tf.logging.info('Starting iteration %d', iteration)
+            total_steps = self._run_train_phase(total_steps)
+            if iteration % self._checkpoint_frequency == 0:
+                self._checkpoint_experiment(iteration, total_steps)
+            if iteration == self.change_freq + 100 and self.experiment_type == "alternating_most_acceptable":
+                if hasattr(self._agent, 'agent'):
+                    self._agent.agent.noise = GaussNoise(sigma=0.05 * np.ones(DOC_NUM))
+            if iteration % self.change_freq == 0 and iteration > 0:
+                self._update_w()
+                if hasattr(self._agent, 'agent') and self.experiment_type == "alternating_most_acceptable":
+                    self._agent.agent.noise = GaussNoise(sigma=1.0 * np.ones(DOC_NUM))
 
     def _run_train_phase(self, total_steps):
         """Runs training phase and updates total_steps."""
@@ -141,38 +197,21 @@ class TrainRunnerCustom(runner_lib.TrainRunner, RunnerCustom):
         self._write_metrics(total_steps, suffix='train')
         return total_steps
 
-
-class EvalRunnerCustom(runner_lib.EvalRunner, RunnerCustom):
-    def __init__(self, max_eval_episodes=125000,
-                 test_mode=False,
-                 min_interval_secs=30,
-                 train_base_dir=None,
-                 **kwargs):
-        runner_lib.EvalRunner.__init__(self, max_eval_episodes=max_eval_episodes,
-                                               test_mode=test_mode,
-                                               min_interval_secs=min_interval_secs,
-                                               train_base_dir=train_base_dir,
-                                               **kwargs)
-
-    def _run_eval_phase(self, total_steps):
-        """Runs evaluation phase given model has been trained for total_steps."""
-
-        self._env.reset_sampler()
-        self._initialize_metrics()
-
-        num_episodes = 0
-        num_steps = 0
-        episode_rewards = []
-
-        while num_episodes < self._max_eval_episodes:
-            self._initialize_metrics()
-            episode_length, episode_rewards = self._run_one_episode()
-            num_steps += episode_length
-            self._write_metrics(num_steps, suffix='eval')
-            num_episodes += 1
-
-        output_file = os.path.join(self._output_dir, 'returns_%s' % total_steps)
-        tf.compat.v1.logging.info('eval_file: %s', output_file)
-        with tf.io.gfile.GFile(output_file, 'w+') as f:
-            f.write(str(episode_rewards))
-
+    def _update_w(self):
+        global SECOND_POPULAR, FIRST_POPULAR, MOST_POPULAR, W
+        if self.experiment_type == "alternating_most_acceptable":
+            environment.W = np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
+            new_most_popular = np.random.randint(DOC_NUM)
+            while new_most_popular == environment.MOST_POPULAR:
+                new_most_popular = np.random.randint(DOC_NUM)
+            else:
+                environment.MOST_POPULAR = new_most_popular
+            environment.W[:, environment.MOST_POPULAR] = np.random.uniform(0.9, 1.0, DOC_NUM)
+        if self.experiment_type == "alternating_pair":
+            environment.W = np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
+            SECOND_POPULAR, FIRST_POPULAR = FIRST_POPULAR, SECOND_POPULAR
+            environment.W[:, FIRST_POPULAR] = np.random.uniform(0.8, 0.9, DOC_NUM)
+            environment.W[:, SECOND_POPULAR] = np.random.uniform(0.6, 0.7, DOC_NUM)
+            environment.W[FIRST_POPULAR, FIRST_POPULAR] = np.random.uniform(0.4, 0.5)
+            environment.W[SECOND_POPULAR, SECOND_POPULAR] = np.random.uniform(0.2, 0.3)
+            environment.W[FIRST_POPULAR, SECOND_POPULAR] = np.random.uniform(0.9, 1.0)

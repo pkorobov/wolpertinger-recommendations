@@ -4,21 +4,27 @@ import shutil
 from recsim.agents import full_slate_q_agent
 from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import recsim_gym, environment
-from recsim_custom import EvalRunnerCustom, TrainRunnerCustom
-from base.ddpg import GaussNoise, CriticNetwork, ActorNetwork
-from stable_baselines.common import set_global_seeds
+from recsim_custom import TrainRunnerCustom
+from base.ddpg import GaussNoise
+from scalar_aggregator import plot_averaged_runs
 
+import torch
 import numpy as np
 import random
 import os
 from environment import *
 from agent import WolpAgent, StaticAgent
+from datetime import datetime
+import json
 
-RUNS = 5
+RUNS = 3
 MAX_TRAINING_STEPS = 15
-NUM_ITERATIONS = 400
+NUM_ITERATIONS = 1000
 EVAL_EPISODES = 100
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
+start_time = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
 
 
 def create_random_agent(sess, environment, eval_mode, summary_writer=None):
@@ -26,11 +32,7 @@ def create_random_agent(sess, environment, eval_mode, summary_writer=None):
 
 
 def create_good_agent(sess, environment, eval_mode, summary_writer=None):
-    return StaticAgent(environment.action_space, 6)
-
-
-def create_bad_agent(sess, environment, eval_mode, summary_writer=None):
-    return StaticAgent(environment.action_space, 0)
+    return StaticAgent(environment, 6)
 
 
 def create_dqn_agent(sess, environment, eval_mode, summary_writer=None):
@@ -71,28 +73,65 @@ def main():
     )
     SEED = 1
     env.seed(SEED)
-    noise = GaussNoise(sigma=0.2 * np.ones(DOC_NUM))
 
-    num_actions = lambda actions, k_ratio: max(1, round(actions * k_ratio))
+    # static env
+    # parameters = {'action_dim': DOC_NUM,
+    #               'state_dim': DOC_NUM,
+    #               'noise': GaussNoise(sigma=0.1),
+    #               'critic_lr': 1e-3,
+    #               'actor_lr': 1e-4,
+    #               'soft_tau': 1e-3,
+    #               'hidden_dim': 16,
+    #               'batch_size': 128,
+    #               'buffer_size': 1000,
+    #               'gamma': 0.99}
+
+    # shift env
+    num_actions = lambda actions, k_ratio: max(1, int(actions * k_ratio))
+    parameters = {'action_dim': DOC_NUM,
+                  'state_dim': DOC_NUM,
+                  'noise': GaussNoise(sigma=0.2),
+                  'critic_lr': 1e-3,
+                  'actor_lr': 3e-4,
+                  'soft_tau': 1e-3,
+                  'hidden_dim': 256,
+                  'batch_size': 128,
+                  'buffer_size': 10000,
+                  'gamma': 0.8}
 
     agents = [
-                ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, normal noise)",
-                  create_wolp_agent_with_ratio(0.01, critic_constructor=CriticNetwork,
-                                               actor_constructor=ActorNetwork, action_dim=DOC_NUM,
-                                               state_dim=DOC_NUM, action_noise=noise)),
-                ("Optimal", create_good_agent)
+                # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, normal noise)",
+                #  create_wolp_agent_with_ratio(0.01, **parameters)),
+                ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.33)) + "NN, normal noise)",
+                 create_wolp_agent_with_ratio(0.33, **parameters)),
+                ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN, normal noise)",
+                 create_wolp_agent_with_ratio(1.0, **parameters)),
+                ("Optimal", create_good_agent),
     ]
 
-    base_dir = cleanup_dir('logs/')
+    # base_dir = cleanup_dir('logs/')
+
+    # experiment_type = 'static_dominant'
+    # experiment_type = 'alternating_most_acceptable'
+    # experiment_type = 'alternating_pair'
+    experiment_type = 'shift'
+
+    base_dir = 'logs/' + experiment_type + ' (' + start_time + ')'
+    os.makedirs(base_dir)
+
+    # with open(base_dir + 'params.txt', 'w') as f:
+    #     f.write(json.dumps(parameters))
+
     for agent_name, create_agent_fun in agents:
         print("Running %s..." % agent_name)
         for run in range(RUNS):
             SEED = run
             os.environ['PYTHONHASHSEED'] = str(SEED)
-            set_global_seeds(SEED)
+            np.random.seed(SEED)
+            torch.manual_seed(SEED)
 
             print("RUN # %s of %s" % (run, RUNS))
-            dir = base_dir + agent_name + "/run_" + str(run)
+            dir = base_dir + '/' + agent_name + "/run_" + str(run)
 
             runner = TrainRunnerCustom(
                 base_dir=dir,
@@ -100,9 +139,13 @@ def main():
                 env=env,
                 max_training_steps=MAX_TRAINING_STEPS,
                 num_iterations=NUM_ITERATIONS,
-                episode_log_file='episodes_log_train.csv'
+                episode_log_file='episodes_log_train.csv',
+                experiment_type=experiment_type,
+                seed=SEED,
+                change_freq=400
             )
             runner.run_experiment()
+    plot_averaged_runs(base_dir)
 
 if __name__ == "__main__":
     main()
