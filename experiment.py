@@ -1,6 +1,7 @@
 import os
 import shutil
 
+from ray.rllib.utils.schedules import PiecewiseSchedule
 from recsim.agents import full_slate_q_agent
 from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import recsim_gym, environment
@@ -22,7 +23,7 @@ MAX_TRAINING_STEPS = 15
 NUM_ITERATIONS = 1000
 EVAL_EPISODES = 100
 
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 start_time = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
 
@@ -98,8 +99,9 @@ def main():
                   'batch_size': 128,
                   'buffer_size': 20000,
                   'gamma': 0.8,
-                  'actor_weight_decay': 0.01}
-
+                  # 'actor_weight_decay': 0.001,
+                  # 'critic_weight_decay': 0.01}
+                  }
     agents = [
                 # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, normal noise)",
                 #  create_wolp_agent_with_ratio(0.01, **parameters)),

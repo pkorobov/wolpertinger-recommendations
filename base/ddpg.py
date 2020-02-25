@@ -14,6 +14,7 @@ from base.optim import AdamCustom
 
 use_cuda = torch.cuda.is_available()
 device   = torch.device("cuda" if use_cuda else "cpu")
+print(use_cuda)
 
 def soft_update(target, source, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
@@ -91,10 +92,10 @@ class Critic(nn.Module):
         )
         self.head = nn.Linear(hidden_size, 1)
 
-        nn.init.xavier_uniform_(self.net[0].weight)
-        nn.init.zeros_(self.net[0].bias)
-        nn.init.xavier_uniform_(self.net[2].weight)
-        nn.init.zeros_(self.net[2].bias)
+        # nn.init.xavier_uniform_(self.net[0].weight)
+        # nn.init.zeros_(self.net[0].bias)
+        # nn.init.xavier_uniform_(self.net[2].weight)
+        # nn.init.zeros_(self.net[2].bias)
 
         nn.init.uniform_(self.head.weight, -init_w, init_w)
         # nn.init.ones_(self.head.weight)
@@ -133,10 +134,10 @@ class Actor(nn.Module):
         )
         self.head = nn.Linear(hidden_size, num_actions)
 
-        nn.init.xavier_uniform_(self.net[0].weight)
-        nn.init.zeros_(self.net[0].bias)
-        nn.init.xavier_uniform_(self.net[2].weight)
-        nn.init.zeros_(self.net[2].bias)
+        # nn.init.xavier_uniform_(self.net[0].weight)
+        # nn.init.zeros_(self.net[0].bias)
+        # nn.init.xavier_uniform_(self.net[2].weight)
+        # nn.init.zeros_(self.net[2].bias)
 
         nn.init.uniform_(self.head.weight, -init_w, init_w)
         # nn.init.ones_(self.head.weight)

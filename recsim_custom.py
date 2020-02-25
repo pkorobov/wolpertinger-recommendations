@@ -157,7 +157,6 @@ class TrainRunnerCustom(runner_lib.TrainRunner, RunnerCustom):
             environment.W = np.diag(np.random.uniform(0.8, 0.9, DOC_NUM))
             environment.W += (np.ones((DOC_NUM, DOC_NUM)) - np.eye(DOC_NUM)) * np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
             environment.W = np.roll(environment.W, 1, axis=1)
-            print(environment.W)
 
     def run_experiment(self):
         """Runs a full experiment, spread over multiple iterations."""
