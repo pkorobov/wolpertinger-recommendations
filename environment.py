@@ -3,19 +3,30 @@ from gym import spaces
 from recsim import document
 from recsim import user
 from recsim.choice_model import AbstractChoiceModel
-import tensorflow as tf
 
 SEED = 1
 np.random.seed(SEED)
 
-# W = np.array([[.100, .800],
-#               [.050, .900]])
+from pyarrow import parquet as pq
+purchases = pq.read_table("purchases-2020-02-19.parquet").to_pandas()
 
-DOC_NUM = 10
-W = np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
+DOC_NUM = 200
+W = np.zeros((10000, 10000))
+counts = np.zeros((10000, 10000))
 
-MOST_POPULAR = 6
-W[:, MOST_POPULAR] = np.random.uniform(0.9, 1.0, DOC_NUM)
+for i, row in purchases.iloc[:10000].iterrows():
+    goods = [*map(lambda x: int(x) - 1, row[0])]
+    clicks = row[1]
+
+    i = 0
+    for index, next_index in zip(goods[:-1], goods[1:]):
+        W[index, next_index] += clicks[i + 1]
+        counts[index, next_index] += 1
+        i += 1
+
+W = (W[:DOC_NUM] + 1) / (counts[:DOC_NUM] + 1000)
+W = W / W.max() * 0.8
+
 
 P_EXIT_ACCEPTED = 0.1
 P_EXIT_NOT_ACCEPTED = 0.2

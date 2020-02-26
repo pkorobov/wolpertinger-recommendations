@@ -1,8 +1,6 @@
 import os
 import shutil
 
-from ray.rllib.utils.schedules import PiecewiseSchedule
-from recsim.agents import full_slate_q_agent
 from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import recsim_gym, environment
 from recsim_custom import TrainRunnerCustom
@@ -17,6 +15,7 @@ from environment import *
 from agent import WolpAgent, StaticAgent
 from datetime import datetime
 import json
+from pyarrow import parquet as pq
 
 RUNS = 3
 MAX_TRAINING_STEPS = 15
@@ -24,6 +23,7 @@ NUM_ITERATIONS = 1000
 EVAL_EPISODES = 100
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 start_time = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
 
@@ -87,11 +87,31 @@ def main():
     #               'buffer_size': 1000,
     #               'gamma': 0.99}
 
+    items = pq.read_table("embeddings.parquet").to_pandas()
+    embeddings = np.vstack(items.sort_values(by='rank')['embedding'])[:DOC_NUM]
+    embeddings = embeddings / np.abs(embeddings).max(axis=0)
+    d = embeddings.shape[1]
     # shift env
     num_actions = lambda actions, k_ratio: max(1, int(actions * k_ratio))
-    parameters = {'action_dim': DOC_NUM,
-                  'state_dim': DOC_NUM,
-                  'noise': GaussNoise(sigma=0.2),
+
+    # parameters = {'action_dim': d,
+    #               'state_dim': d,
+    #               'noise': GaussNoise(sigma=0.2),
+    #               'critic_lr': 1e-3,
+    #               'actor_lr': 3e-4,
+    #               'soft_tau': 1e-3,
+    #               'hidden_dim': 256,
+    #               'batch_size': 128,
+    #               'buffer_size': 20000,
+    #               'gamma': 0.8,
+    #               'embeddings': embeddings
+    #               # 'actor_weight_decay': 0.001,
+    #               # 'critic_weight_decay': 0.01}
+    #               }
+
+    parameters = {'action_dim': d,
+                  'state_dim': d,
+                  'noise': GaussNoise(sigma=0.4),
                   'critic_lr': 1e-3,
                   'actor_lr': 3e-4,
                   'soft_tau': 1e-3,
@@ -99,32 +119,33 @@ def main():
                   'batch_size': 128,
                   'buffer_size': 20000,
                   'gamma': 0.8,
+                  'embeddings': embeddings
                   # 'actor_weight_decay': 0.001,
                   # 'critic_weight_decay': 0.01}
                   }
     agents = [
-                # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, normal noise)",
-                #  create_wolp_agent_with_ratio(0.01, **parameters)),
-                ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.33)) + "NN, normal noise)",
-                 create_wolp_agent_with_ratio(0.33, **parameters)),
-                ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN, normal noise)",
-                 create_wolp_agent_with_ratio(1.0, **parameters)),
+                ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.1)) + "NN, normal noise)",
+                 create_wolp_agent_with_ratio(0.1, **parameters)),
+                # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.33)) + "NN, normal noise)",
+                #  create_wolp_agent_with_ratio(0.33, **parameters)),
+                # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN, normal noise)",
+                #  create_wolp_agent_with_ratio(1.0, **parameters)),
                 ("Optimal", create_good_agent),
     ]
 
     # base_dir = cleanup_dir('logs/')
 
+    experiment_type = 'embeddings'
     # experiment_type = 'static_dominant'
     # experiment_type = 'alternating_most_acceptable'
     # experiment_type = 'alternating_pair'
-    experiment_type = 'shift'
+    # experiment_type = 'shift'
 
     base_dir = 'logs/' + experiment_type + ' (' + start_time + ')'
     os.makedirs(base_dir)
 
     # with open(base_dir + 'params.txt', 'w') as f:
     #     f.write(json.dumps(parameters))
-
     for agent_name, create_agent_fun in agents:
         print("Running %s..." % agent_name)
         for run in range(RUNS):

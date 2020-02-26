@@ -1,10 +1,7 @@
-import wolpertinger.knn_search as knn_search
 import copy
-import torch
 from base.ddpg import DDPG
-from base.ddpg import Critic
-from base.ddpg import Actor
 import environment
+import faiss
 
 import gym
 from gym.core import Env
@@ -27,20 +24,11 @@ class WolpertingerAgent(DDPG):
                                                 min_value=min_value, max_value=max_value,
                                                 **kwargs)
 
+        n, d = embeddings.shape
+        self.embeddings = embeddings
+        self.index = faiss.IndexFlatL2(d)
+        self.index.add(embeddings.astype(np.float32))
 
-        # old and ugly
-        if isinstance(env.action_space, gym.spaces.Discrete):
-            n = env.action_space.n
-            env_ = copy.deepcopy(env)
-            env_.action_space = gym.spaces.Box(np.array([0.] * n), np.array([1.] * n))
-        elif isinstance(env.action_space, gym.spaces.MultiDiscrete) and len(env.action_space.nvec.shape) == 1:
-            n = env.action_space.nvec[0]
-            dummy_env = DummyEnv(action_space=gym.spaces.Box(np.array([0.] * n), np.array([1.] * n)),
-                                 observation_space=gym.spaces.Box(np.array([0.] * n), np.array([1.] * n)))
-        else:
-            raise Exception("Action space must be Discrete or one-dimensional MultiDiscrete")
-
-        self.knn_search = knn_search.KNNSearch(dummy_env.action_space, embeddings)
         self.k = max(1, int(n * k_ratio))
 
     def predict(self, state):
@@ -48,7 +36,8 @@ class WolpertingerAgent(DDPG):
         proto_action = super().predict(state)
         proto_action = proto_action.clip(0, 1)
 
-        actions = np.eye(self.action_dim)[np.lexsort((np.random.random(self.action_dim), proto_action))[-self.k:]]
+        _, I = self.index.search(proto_action[np.newaxis, :].astype(np.float32), self.k)
+        actions = self.embeddings[I[0]]
         states = np.tile(state, [len(actions), 1])  # make all the state-action pairs for the critic
         q_values = self.critic.get_q_values(states, actions)
         max_index = np.argmax(q_values)  # find the index of the pair with the maximum value
@@ -60,20 +49,20 @@ class WolpertingerAgent(DDPG):
 
     def compute_q_values(self, state_num=0, a=None, dim=None):
         if dim is None:
-            dim = self.action_dim
+            dim = self.embeddings.shape[0]
         if a is None:
-            a = np.eye(dim, self.action_dim)
-        s = np.zeros((dim, self.action_dim))
-        s[:, state_num] = 1
+            a = self.embeddings
+        s = self.embeddings[state_num]
+        s = np.tile(s, [dim, 1])
         q_vector = self.critic.get_q_values(s, a)
         return q_vector
 
     def compute_q_values_target(self, state_num=0, a=None, dim=None):
         if dim is None:
-            dim = self.action_dim
+            dim = self.embeddings.shape[0]
         if a is None:
-            a = np.eye(dim, self.action_dim)
-        s = np.zeros((dim, self.action_dim))
-        s[:, state_num] = 1
+            a = self.embeddings
+        s = self.embeddings[state_num]
+        s = np.tile(s, [dim, 1])
         q_vector = self.critic_target.get_q_values(s, a)
         return q_vector

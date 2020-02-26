@@ -1,8 +1,6 @@
-import wolpertinger.knn_search as knn_search
 import copy
 from stable_baselines import SAC
 import tensorflow as tf
-from stable_baselines.ppo2.ppo2 import safe_mean, get_schedule_fn
 
 import gym
 from gym.core import Env

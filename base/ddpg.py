@@ -10,7 +10,6 @@ import torch.optim as optim
 import torch.nn.functional as F
 import itertools
 import copy
-from base.optim import AdamCustom
 
 use_cuda = torch.cuda.is_available()
 device   = torch.device("cuda" if use_cuda else "cpu")
@@ -149,7 +148,7 @@ class Actor(nn.Module):
         # return x
         x = self.net(state)
         x = self.head(x)
-        x = F.sigmoid(x)
+        x = F.tanh(x)
         return x
 
     def get_action(self, state):

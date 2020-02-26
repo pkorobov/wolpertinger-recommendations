@@ -2,8 +2,6 @@ from recsim.agent import AbstractEpisodicRecommenderAgent
 import tensorflow as tf
 from wolpertinger.wolp_agent import *
 from wolpertinger.soft_wolp_agent import *
-from stable_baselines.sac import MlpPolicy as SACPolicy
-from stable_baselines.ddpg import MlpPolicy as DDPGPolicy
 from gym import spaces
 import os
 
@@ -77,4 +75,6 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
 
     def _extract_state(self, observation):
         user_space = self._observation_space.spaces['user']
-        return spaces.flatten(user_space, observation['user'])
+        state = spaces.flatten(user_space, observation['user'])
+        state = self.agent.index.reconstruct(int(np.argmax(state)))
+        return state
