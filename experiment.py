@@ -1,13 +1,12 @@
 import os
 import shutil
 
-from ray.rllib.utils.schedules import PiecewiseSchedule
 from recsim.agents import full_slate_q_agent
 from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import recsim_gym, environment
 from recsim_custom import TrainRunnerCustom
 from base.ddpg import GaussNoise
-from scalar_aggregator import plot_averaged_runs
+from plots import plot_averaged_runs
 
 import torch
 import numpy as np
@@ -18,7 +17,7 @@ from agent import WolpAgent, StaticAgent
 from datetime import datetime
 import json
 
-RUNS = 3
+RUNS = 5
 MAX_TRAINING_STEPS = 15
 NUM_ITERATIONS = 1000
 EVAL_EPISODES = 100
@@ -88,36 +87,55 @@ def main():
     #               'gamma': 0.99}
 
     # shift env
-    num_actions = lambda actions, k_ratio: max(1, int(actions * k_ratio))
     parameters = {'action_dim': DOC_NUM,
                   'state_dim': DOC_NUM,
-                  'noise': GaussNoise(sigma=0.2),
+                  'noise': GaussNoise(sigma=0.05),
                   'critic_lr': 1e-3,
-                  'actor_lr': 3e-4,
+                  'actor_lr': 1e-3,
                   'soft_tau': 1e-3,
                   'hidden_dim': 256,
                   'batch_size': 128,
                   'buffer_size': 20000,
                   'gamma': 0.8,
-                  # 'actor_weight_decay': 0.001,
-                  # 'critic_weight_decay': 0.01}
+                  # 'actor_weight_decay': 0.05,
+                  'actor_weight_decay': 0.001,
+                  'critic_weight_decay': 0.01,
+                  'training_starts': 5000
                   }
+
+    # alternating
+    # parameters = {'action_dim': DOC_NUM,
+    #               'state_dim': DOC_NUM,
+    #               'noise': GaussNoise(sigma=0.1),
+    #               'critic_lr': 1e-3,
+    #               'actor_lr': 1e-3,
+    #               'soft_tau': 1e-3,
+    #               'hidden_dim': 256,
+    #               'batch_size': 128,
+    #               'buffer_size': 1000,
+    #               'gamma': 0.8,
+    #               'actor_weight_decay': 0.1,
+    #               'critic_weight_decay': 0.1,
+    #               'init_w_actor': 3e-3,
+    #               }
+
+    num_actions = lambda actions, k_ratio: max(1, int(actions * k_ratio))
     agents = [
                 # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, normal noise)",
                 #  create_wolp_agent_with_ratio(0.01, **parameters)),
                 ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.33)) + "NN, normal noise)",
                  create_wolp_agent_with_ratio(0.33, **parameters)),
-                ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN, normal noise)",
-                 create_wolp_agent_with_ratio(1.0, **parameters)),
+                # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN, normal noise)",
+                #  create_wolp_agent_with_ratio(1.0, **parameters)),
                 ("Optimal", create_good_agent),
     ]
 
     # base_dir = cleanup_dir('logs/')
 
     # experiment_type = 'static_dominant'
-    # experiment_type = 'alternating_most_acceptable'
+    experiment_type = 'alternating_most_acceptable'
     # experiment_type = 'alternating_pair'
-    experiment_type = 'shift'
+    # experiment_type = 'shift'
 
     base_dir = 'logs/' + experiment_type + ' (' + start_time + ')'
     os.makedirs(base_dir)

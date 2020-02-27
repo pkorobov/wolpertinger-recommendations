@@ -63,6 +63,17 @@ class RunnerCustom(runner_lib.Runner):
         row = [self.episode_num, user_obs[0], slate[0], reward]
         log_df.loc[len(log_df)] = row
 
+
+        if hasattr(self._agent, "agent"):
+            s = "s: {:>7}, a: {:>7}, r: {:>7}, done: {:>7}".format(
+                np.argmax(user_obs[0]),
+                np.argmax(slate[0]),
+                reward,
+                is_terminal)
+            np.set_printoptions(suppress=True, precision=3, floatmode='fixed')
+            s = s + "\n\nproto: {}".format(self._agent.agent.last_proto)
+            self._summary_writer.add_text('Step', s, self._agent.agent.t)
+
     def _run_one_episode(self):
         """Executes a full trajectory of the agent interacting with the environment.
 
@@ -176,11 +187,13 @@ class TrainRunnerCustom(runner_lib.TrainRunner, RunnerCustom):
                 self._checkpoint_experiment(iteration, total_steps)
             if iteration == self.change_freq + 100 and self.experiment_type == "alternating_most_acceptable":
                 if hasattr(self._agent, 'agent'):
-                    self._agent.agent.noise = GaussNoise(sigma=0.05 * np.ones(DOC_NUM))
-            if iteration % self.change_freq == 0 and iteration > 0:
+                    pass
+                    # self._agent.agent.noise = GaussNoise(sigma=0.05 * np.ones(DOC_NUM))
+            if iteration == self.change_freq and iteration > 0:
                 self._update_w()
                 if hasattr(self._agent, 'agent') and self.experiment_type == "alternating_most_acceptable":
-                    self._agent.agent.noise = GaussNoise(sigma=1.0 * np.ones(DOC_NUM))
+                    pass
+                    # self._agent.agent.noise = GaussNoise(sigma=1.0 * np.ones(DOC_NUM))
 
     def _run_train_phase(self, total_steps):
         """Runs training phase and updates total_steps."""

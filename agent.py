@@ -1,9 +1,6 @@
 from recsim.agent import AbstractEpisodicRecommenderAgent
-import tensorflow as tf
 from wolpertinger.wolp_agent import *
 from wolpertinger.soft_wolp_agent import *
-from stable_baselines.sac import MlpPolicy as SACPolicy
-from stable_baselines.ddpg import MlpPolicy as DDPGPolicy
 from gym import spaces
 import os
 
@@ -28,7 +25,7 @@ class StaticAgent(AbstractEpisodicRecommenderAgent):
 class WolpAgent(AbstractEpisodicRecommenderAgent):
 
     def __init__(self, env, state_dim, action_dim,
-                 k_ratio=0.1, eval_mode=False, **kwargs):
+                 k_ratio=0.1, training_starts=100, eval_mode=False, **kwargs):
         AbstractEpisodicRecommenderAgent.__init__(self, env.action_space)
 
         self._observation_space = env.observation_space
@@ -37,6 +34,7 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
         self.agent.t = 0
         self.current_episode = {}
         self.eval_mode = eval_mode
+        self.training_starts = training_starts
 
     def begin_episode(self, observation=None):
         state = self._extract_state(observation)
@@ -69,9 +67,11 @@ class WolpAgent(AbstractEpisodicRecommenderAgent):
             "reward": reward,
             "done": done
         })
+
+        self.agent.episode = self.current_episode
         if not self.eval_mode:
             self.agent.replay_buffer.push(**self.current_episode)
-            if len(self.agent.replay_buffer) >= self.agent.batch_size:
+            if self.agent.t >= self.training_starts and len(self.agent.replay_buffer) >= self.agent.batch_size:
                 self.agent.update()
         self.current_episode = {}
 

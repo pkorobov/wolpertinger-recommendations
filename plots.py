@@ -6,12 +6,20 @@ import matplotlib as mpl
 import os
 from tqdm import tqdm
 import argparse
+import seaborn as sns
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--path', default='logs')
 args = parser.parse_args()
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=['orange', 'green', 'red', 'blue', 'gray'])
 plt.rcParams['axes.grid'] = True
+
+
+def heatmap(summary_writer, matrix, tag, step):
+    fig, ax = plt.subplots(figsize=matrix.shape)
+    sns.heatmap(matrix, annot=True)
+    summary_writer.add_figure(tag, fig, global_step=step)
+    return fig
 
 
 def _load_run(path):

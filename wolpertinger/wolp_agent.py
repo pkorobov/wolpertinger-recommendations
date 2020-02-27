@@ -1,14 +1,8 @@
-import wolpertinger.knn_search as knn_search
-import copy
-import torch
 from base.ddpg import DDPG
-from base.ddpg import Critic
-from base.ddpg import Actor
 import environment
-
 import gym
 from gym.core import Env
-
+import plots
 import numpy as np
 
 class DummyEnv(Env):
@@ -26,22 +20,9 @@ class WolpertingerAgent(DDPG):
                                                 batch_size=batch_size, gamma=gamma,
                                                 min_value=min_value, max_value=max_value,
                                                 **kwargs)
-
-
-        # old and ugly
-        if isinstance(env.action_space, gym.spaces.Discrete):
-            n = env.action_space.n
-            env_ = copy.deepcopy(env)
-            env_.action_space = gym.spaces.Box(np.array([0.] * n), np.array([1.] * n))
-        elif isinstance(env.action_space, gym.spaces.MultiDiscrete) and len(env.action_space.nvec.shape) == 1:
-            n = env.action_space.nvec[0]
-            dummy_env = DummyEnv(action_space=gym.spaces.Box(np.array([0.] * n), np.array([1.] * n)),
-                                 observation_space=gym.spaces.Box(np.array([0.] * n), np.array([1.] * n)))
-        else:
-            raise Exception("Action space must be Discrete or one-dimensional MultiDiscrete")
-
-        self.knn_search = knn_search.KNNSearch(dummy_env.action_space, embeddings)
-        self.k = max(1, int(n * k_ratio))
+        self.k = max(1, int(action_dim * k_ratio))
+        self.episode = None
+        self.last_proto = None
 
     def predict(self, state):
 
@@ -53,10 +34,32 @@ class WolpertingerAgent(DDPG):
         q_values = self.critic.get_q_values(states, actions)
         max_index = np.argmax(q_values)  # find the index of the pair with the maximum value
         action, q_value = actions[max_index], q_values[max_index]
+
+        q_values = np.hstack([self.compute_q_values(i) for i in range(environment.DOC_NUM)]).T
+        q_values_target = np.hstack([self.compute_q_values_target(i) for i in range(environment.DOC_NUM)]).T
+        actions = np.vstack([super(WolpertingerAgent, self).predict(np.eye(10)[i]) for i in range(environment.DOC_NUM)])
+        # logging
+
+        self.last_proto = proto_action
+        if self.summary_writer:
+            if self.t % 100 == 0:
+                plots.heatmap(self.summary_writer, q_values.round(3), 'Q values/main', self.t)
+                plots.heatmap(self.summary_writer, q_values_target.round(3), 'Q values/target', self.t)
+                plots.heatmap(self.summary_writer, actions.round(3), 'policy/actions', self.t)
         return action
 
     def update(self):
         super().update()
+
+    def compute_actions(self, state_num=0, a=None, dim=None):
+        if dim is None:
+            dim = self.action_dim
+        if a is None:
+            a = np.eye(dim, self.action_dim)
+        s = np.zeros((dim, self.action_dim))
+        s[:, state_num] = 1
+        q_vector = self.critic.get_q_values(s, a)
+        return q_vector
 
     def compute_q_values(self, state_num=0, a=None, dim=None):
         if dim is None:
