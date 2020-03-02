@@ -9,4 +9,4 @@
 
 
 
-
+Полезные ссылки: [рекомендации и финты для обучения агентов](https://drive.google.com/file/d/0BxXI_RttTZAhc2ZsblNvUHhGZDA/view)
