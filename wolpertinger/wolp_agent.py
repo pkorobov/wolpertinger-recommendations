@@ -14,15 +14,18 @@ class DummyEnv(Env):
 class WolpertingerAgent(DDPG):
     def __init__(self, state_dim, action_dim, env,
                  batch_size=128, gamma=0.99, min_value=-np.inf, max_value=np.inf,
-                 k_ratio=0.1, embeddings=None, **kwargs):
+                 k_ratio=0.1, training_starts=100, eps=1e-2, embeddings=None, **kwargs):
 
         super(WolpertingerAgent, self).__init__(state_dim, action_dim,
                                                 batch_size=batch_size, gamma=gamma,
                                                 min_value=min_value, max_value=max_value,
                                                 **kwargs)
         self.k = max(1, int(action_dim * k_ratio))
+        self.training_starts = training_starts
+        self.eps = eps
         self.episode = None
         self.last_proto = None
+
 
     def predict(self, state):
 

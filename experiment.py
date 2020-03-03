@@ -19,7 +19,7 @@ import json
 
 RUNS = 5
 MAX_TRAINING_STEPS = 15
-NUM_ITERATIONS = 1000
+NUM_ITERATIONS = 3000
 EVAL_EPISODES = 100
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -99,8 +99,9 @@ def main():
                   'gamma': 0.8,
                   # 'actor_weight_decay': 0.05,
                   'actor_weight_decay': 0.001,
-                  'critic_weight_decay': 0.01,
-                  'training_starts': 5000
+                  'critic_weight_decay': 0.001,
+                  'eps': 1e-1
+                  # 'training_starts': 1000
                   }
 
     # alternating
@@ -133,9 +134,9 @@ def main():
     # base_dir = cleanup_dir('logs/')
 
     # experiment_type = 'static_dominant'
-    experiment_type = 'alternating_most_acceptable'
+    # experiment_type = 'alternating_most_acceptable'
     # experiment_type = 'alternating_pair'
-    # experiment_type = 'shift'
+    experiment_type = 'shift'
 
     base_dir = 'logs/' + experiment_type + ' (' + start_time + ')'
     os.makedirs(base_dir)
