@@ -15,7 +15,7 @@ class KNNSearch:
         n = space.shape[0]
         if embeddings is None:
             self._space = np.eye(n)  # or embedded points in future
-            self._low = np.array([-1] * n)
+            self._low = np.array([0] * n)
             self._high = np.array([1] * n)
 
         self._range = self._high - self._low
