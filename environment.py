@@ -3,24 +3,13 @@ from gym import spaces
 from recsim import document
 from recsim import user
 from recsim.choice_model import AbstractChoiceModel
-import tensorflow as tf
+import config
 
-SEED = 1
-np.random.seed(SEED)
-
-# W = np.array([[.100, .800],
-#               [.050, .900]])
-
-DOC_NUM = 10
-W = np.random.uniform(0.0, 0.2, (DOC_NUM, DOC_NUM))
-
-MOST_POPULAR = 6
-W[:, MOST_POPULAR] = np.random.uniform(0.9, 1.0, DOC_NUM)
+W = config.W
+DOC_NUM = config.DOC_NUM
 
 P_EXIT_ACCEPTED = 0.1
 P_EXIT_NOT_ACCEPTED = 0.2
-
-TIME_STEP = 0.0
 
 
 class Document(document.AbstractDocument):
@@ -42,7 +31,7 @@ class Document(document.AbstractDocument):
 class DocumentSampler(document.AbstractDocumentSampler):
 
     def __init__(self, doc_ctor=Document):
-        super(DocumentSampler, self).__init__(doc_ctor, seed=SEED)
+        super(DocumentSampler, self).__init__(doc_ctor)
         self._doc_count = 0
         
     def sample_document(self):
@@ -75,7 +64,7 @@ class UserState(user.AbstractUserState):
 class StaticUserSampler(user.AbstractUserSampler):
 
     def __init__(self, user_ctor=UserState):
-        super(StaticUserSampler, self).__init__(user_ctor, seed=SEED)
+        super(StaticUserSampler, self).__init__(user_ctor)
         self.user_count = 0
 
     def sample_user(self):
@@ -111,8 +100,8 @@ class UserChoiceModel(AbstractChoiceModel):
         if np.random.random() < self.scores[0]:
             return 0
 
-class UserModel(user.AbstractUserModel):
 
+class UserModel(user.AbstractUserModel):
     def __init__(self):
         super(UserModel, self).__init__(Response, StaticUserSampler(), 1)
         self.choice_model = UserChoiceModel()
@@ -135,9 +124,6 @@ class UserModel(user.AbstractUserModel):
 
         if len(slate_documents) != 1:
             raise ValueError("Expecting single document, but got: {}".format(slate_documents))
-
-        global TIME_STEP
-        TIME_STEP += 1.0
 
         response = responses[0]
         doc = slate_documents[0]

@@ -1,21 +1,14 @@
-import os
 import shutil
 
 from recsim.agents import full_slate_q_agent
 from recsim.agents.random_agent import RandomAgent
 from recsim.simulator import recsim_gym, environment
-from recsim_custom import TrainRunnerCustom
-from base.ddpg import GaussNoise
 from plots import plot_averaged_runs
-
-import torch
-import numpy as np
-import random
+from tensorboardX import SummaryWriter
 import os
 from environment import *
-from agent import WolpAgent, StaticAgent
+from agent import WolpertingerRecSim, StaticAgent
 from datetime import datetime
-import json
 
 RUNS = 5
 MAX_TRAINING_STEPS = 15
@@ -25,33 +18,6 @@ EVAL_EPISODES = 100
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 start_time = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-
-
-def create_random_agent(sess, environment, eval_mode, summary_writer=None):
-    return RandomAgent(environment.action_space, random_seed=SEED)
-
-
-def create_good_agent(sess, environment, eval_mode, summary_writer=None):
-    return StaticAgent(environment, 6)
-
-
-def create_dqn_agent(sess, environment, eval_mode, summary_writer=None):
-    kwargs = {
-        'observation_space': environment.observation_space,
-        'action_space': environment.action_space,
-        'summary_writer': summary_writer,
-        'eval_mode': eval_mode,
-    }
-    return full_slate_q_agent.FullSlateQAgent(sess, **kwargs)
-
-
-def create_wolp_agent_with_ratio(k_ratio=0.1, policy_kwargs=None, action_noise=None, **kwargs):
-
-    def create_wolp_agent(sess, environment, eval_mode, summary_writer=None):
-        return WolpAgent(environment, action_space=environment.action_space,
-                         k_ratio=k_ratio, action_noise=action_noise, summary_writer=summary_writer,
-                         eval_mode=eval_mode, **kwargs)
-    return create_wolp_agent
 
 
 def cleanup_dir(dir_path):
@@ -73,100 +39,37 @@ def main():
     )
     SEED = 1
     env.seed(SEED)
-
-    # static env
-    # parameters = {'action_dim': DOC_NUM,
-    #               'state_dim': DOC_NUM,
-    #               'noise': GaussNoise(sigma=0.1),
-    #               'critic_lr': 1e-3,
-    #               'actor_lr': 1e-4,
-    #               'soft_tau': 1e-3,
-    #               'hidden_dim': 16,
-    #               'batch_size': 128,
-    #               'buffer_size': 1000,
-    #               'gamma': 0.99}
-
-    # shift env
-    parameters = {'action_dim': DOC_NUM,
-                  'state_dim': DOC_NUM,
-                  'noise': GaussNoise(sigma=0.05),
-                  'critic_lr': 1e-3,
-                  'actor_lr': 1e-3,
-                  'soft_tau': 1e-3,
-                  'hidden_dim': 256,
-                  'batch_size': 128,
-                  'buffer_size': 20000,
-                  'gamma': 0.8,
-                  # 'actor_weight_decay': 0.05,
-                  'actor_weight_decay': 0.001,
-                  'critic_weight_decay': 0.001,
-                  'eps': 1e-1
-                  # 'training_starts': 1000
-                  }
-
-    # alternating
-    # parameters = {'action_dim': DOC_NUM,
-    #               'state_dim': DOC_NUM,
-    #               'noise': GaussNoise(sigma=0.1),
-    #               'critic_lr': 1e-3,
-    #               'actor_lr': 1e-3,
-    #               'soft_tau': 1e-3,
-    #               'hidden_dim': 256,
-    #               'batch_size': 128,
-    #               'buffer_size': 1000,
-    #               'gamma': 0.8,
-    #               'actor_weight_decay': 0.1,
-    #               'critic_weight_decay': 0.1,
-    #               'init_w_actor': 3e-3,
-    #               }
-
     num_actions = lambda actions, k_ratio: max(1, int(actions * k_ratio))
-    agents = [
-                # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.01)) + "NN, normal noise)",
-                #  create_wolp_agent_with_ratio(0.01, **parameters)),
-                ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.33)) + "NN, normal noise)",
-                 create_wolp_agent_with_ratio(0.33, **parameters)),
-                # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN, normal noise)",
-                #  create_wolp_agent_with_ratio(1.0, **parameters)),
-                ("Optimal", create_good_agent),
-    ]
 
-    # base_dir = cleanup_dir('logs/')
-
-    # experiment_type = 'static_dominant'
-    # experiment_type = 'alternating_most_acceptable'
-    # experiment_type = 'alternating_pair'
-    experiment_type = 'shift'
-
-    base_dir = 'logs/' + experiment_type + ' (' + start_time + ')'
+    base_dir = 'logs/' + config.ENV_PARAMETERS['kind'] + '/' + start_time + '/'
     os.makedirs(base_dir)
 
-    # with open(base_dir + 'params.txt', 'w') as f:
-    #     f.write(json.dumps(parameters))
+    agent_class = WolpertingerRecSim
+    config.init_w()
+    parameters = config.parameters
 
-    for agent_name, create_agent_fun in agents:
-        print("Running %s..." % agent_name)
-        for run in range(RUNS):
-            SEED = run
-            os.environ['PYTHONHASHSEED'] = str(SEED)
-            np.random.seed(SEED)
-            torch.manual_seed(SEED)
-
-            print("RUN # %s of %s" % (run, RUNS))
-            dir = base_dir + '/' + agent_name + "/run_" + str(run)
-
-            runner = TrainRunnerCustom(
-                base_dir=dir,
-                create_agent_fn=create_agent_fun,
-                env=env,
-                max_training_steps=MAX_TRAINING_STEPS,
-                num_iterations=NUM_ITERATIONS,
-                episode_log_file='episodes_log_train.csv',
-                experiment_type=experiment_type,
-                seed=SEED,
-                change_freq=400
-            )
-            runner.run_experiment()
+    for run in range(RUNS):
+        summary_writer = SummaryWriter(base_dir + "/agent/run_{}/train".format(run))
+        agent = agent_class(env, action_space=env.action_space,
+                               k_ratio=0.33, summary_writer=summary_writer,
+                               eval_mode=False, **parameters)
+        step_number = 0
+        total_reward = 0.
+        observation = env.reset()
+        while step_number < 60000:
+            action = agent.begin_episode(observation)
+            episode_reward = 0
+            while True:
+                observation, reward, done, info = env.step(action)
+                total_reward += reward
+                step_number += 1
+                episode_reward += reward
+                if done:
+                    break
+                else:
+                    action = agent.step(reward, observation)
+            agent.end_episode(reward, observation)
+            summary_writer.add_scalar('AverageEpisodeRewards', np.mean(episode_reward), step_number)
     plot_averaged_runs(base_dir)
 
 if __name__ == "__main__":

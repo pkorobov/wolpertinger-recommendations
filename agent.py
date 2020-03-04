@@ -1,8 +1,6 @@
 from recsim.agent import AbstractEpisodicRecommenderAgent
-from wolpertinger.wolp_agent import *
-from wolpertinger.soft_wolp_agent import *
+from base.wolpertinger import *
 from gym import spaces
-import os
 
 
 class StaticAgent(AbstractEpisodicRecommenderAgent):
@@ -22,14 +20,14 @@ class StaticAgent(AbstractEpisodicRecommenderAgent):
         return spaces.flatten(user_space, observation['user'])
 
 
-class WolpAgent(AbstractEpisodicRecommenderAgent):
+class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
 
     def __init__(self, env, state_dim, action_dim,
                  k_ratio=0.1, eval_mode=False, **kwargs):
         AbstractEpisodicRecommenderAgent.__init__(self, env.action_space)
 
         self._observation_space = env.observation_space
-        self.agent = WolpertingerAgent(state_dim, action_dim,
+        self.agent = Wolpertinger(state_dim, action_dim,
                                        env, k_ratio=k_ratio, **kwargs)
         self.agent.t = 0
         self.current_episode = {}
