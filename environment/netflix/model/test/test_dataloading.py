@@ -97,7 +97,19 @@ class TestDataLoading(unittest.TestCase):
             [+1.0, 3.0, 0.0, 0.0, 2.0],
             [+0.0, 3.0, 0.0, 0.0, 2.0]
         ])))
-        self.assertTrue(np.allclose(y.numpy(), np.array([[2.0], [2.0], [3.0], [3.0]])))
+        self.assertTrue(np.allclose(y.numpy(), np.array([2.0, 2.0, 3.0, 3.0])))
+
+    def test_batchify_last(self):
+        loader = dl.NetflixDataLoader(self, self.config, batch_size=1, target_index_sampler="last")
+        x, y = loader.batchify(self.data[self.loader.ordered_columns].values)
+
+        self.assertTrue(np.array_equal(x.numpy(), ([
+            [+1.0, 2.0, 0.0, 0.0, 0.0],
+            [-1.0, 1.0, 0.0, 0.0, 2.0],
+            [+1.0, 1.0, 0.0, 2.0, 3.0],
+            [+0.0, 3.0, 3.0, 1.0, 1.0]
+        ])))
+        self.assertTrue(np.allclose(y.numpy(), np.array([2.0, 1.0, 1.0, 3.0])))
 
     def __len__(self):
         return len(self.data)

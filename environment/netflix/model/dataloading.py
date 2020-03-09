@@ -12,7 +12,7 @@ REMOVE_TARGET_AND_AFTER = "target-and-after"
 
 class NetflixDataLoader(td.dataloader.DataLoader):
 
-    def __init__(self, dataset, config, batch_size, shuffle=False, max_recommended_batch_size=1024):
+    def __init__(self, dataset, config, batch_size, target_index_sampler="random", shuffle=False, max_recommended_batch_size=1024):
         if batch_size > max_recommended_batch_size:
             logging.warning(
                 "Batch size is too large {}. Lost of copying happening here, so you should apply this to batches of size <= {}".format(batch_size, max_recommended_batch_size))
@@ -27,7 +27,13 @@ class NetflixDataLoader(td.dataloader.DataLoader):
         sampler = td.sampler.RandomSampler(dataset) if shuffle else td.sampler.SequentialSampler(dataset)
         self.batch_sampler = td.sampler.BatchSampler(sampler, batch_size, False)
 
-        self._target_index = np.vectorize(_random_target_index, otypes=[int])
+        if target_index_sampler == "random":
+            self._target_index = np.vectorize(_random_target_index, otypes=[int])
+        elif target_index_sampler == "last":
+            self._target_index = np.vectorize(_last_target_index, otypes=[int])
+        else:
+            raise ValueError("Unknown value " + target_index_sampler)
+
         self._target_feature = np.vectorize(_target_feature, otypes=[object])
         self._remove_target_only = np.vectorize(_remove_target_only, otypes=[object])
         self._remove_target_and_after = np.vectorize(_remove_target_and_after, otypes=[object])
@@ -70,6 +76,10 @@ class NetflixDataLoader(td.dataloader.DataLoader):
 
 def _random_target_index(values):
     return np.random.randint(len(values))
+
+
+def _last_target_index(values):
+    return len(values) - 1
 
 
 def _target_feature(values, target_index):
