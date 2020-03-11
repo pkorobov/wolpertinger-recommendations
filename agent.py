@@ -1,19 +1,18 @@
 from recsim.agent import AbstractEpisodicRecommenderAgent
 from base.wolpertinger import *
 from gym import spaces
+import config
 
-
-class StaticAgent(AbstractEpisodicRecommenderAgent):
+class OptimalAgent(AbstractEpisodicRecommenderAgent):
 
     # TODO: change filename of environment.py: conflicts with recsim.simulator submodule and local variables
-    def __init__(self, environment, recommended_doc_id):
-        super(StaticAgent, self).__init__(environment.action_space)
-        self.recommended_doc_id = recommended_doc_id
+    def __init__(self, environment):
+        super(OptimalAgent, self).__init__(environment.action_space)
         self._observation_space = environment.observation_space
 
     def step(self, reward, observation):
         state = self._extract_state(observation)
-        return [environment.W[state.argmax(), :].argmax()]
+        return [config.W[state.argmax(), :].argmax()]
 
     def _extract_state(self, observation):
         user_space = self._observation_space.spaces['user']
