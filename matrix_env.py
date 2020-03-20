@@ -3,10 +3,8 @@ from gym import spaces
 from recsim import document
 from recsim import user
 from recsim.choice_model import AbstractChoiceModel
-import config
+import config as c
 
-W = config.W
-DOC_NUM = config.DOC_NUM
 
 P_EXIT_ACCEPTED = 0.1
 P_EXIT_NOT_ACCEPTED = 0.2
@@ -22,7 +20,7 @@ class Document(document.AbstractDocument):
 
     @staticmethod
     def observation_space():
-        return spaces.Discrete(DOC_NUM)
+        return spaces.Discrete(c.DOC_NUM)
   
     def __str__(self):
         return "Document #{}".format(self._doc_id)
@@ -35,13 +33,13 @@ class DocumentSampler(document.AbstractDocumentSampler):
         self._doc_count = 0
         
     def sample_document(self):
-        doc = self._doc_ctor(self._doc_count % DOC_NUM)
+        doc = self._doc_ctor(self._doc_count % c.DOC_NUM)
         self._doc_count += 1
         return doc
 
 
 class UserState(user.AbstractUserState):
-    
+
     def __init__(self, user_id, current, active_session=True):
         self.user_id = user_id
         self.current = current
@@ -55,10 +53,10 @@ class UserState(user.AbstractUserState):
 
     @staticmethod
     def observation_space():
-        return spaces.Discrete(DOC_NUM)
+        return spaces.Discrete(c.DOC_NUM)
 
     def score_document(self, doc_obs):
-        return W[self.current, doc_obs[0]]
+        return c.W[self.current, doc_obs[0]]
 
 
 class StaticUserSampler(user.AbstractUserSampler):
@@ -69,7 +67,7 @@ class StaticUserSampler(user.AbstractUserSampler):
 
     def sample_user(self):
         self.user_count += 1
-        sampled_user = self._user_ctor(self.user_count, np.random.randint(DOC_NUM))
+        sampled_user = self._user_ctor(self.user_count, np.random.randint(c.DOC_NUM))
         return sampled_user
 
 
@@ -131,7 +129,7 @@ class UserModel(user.AbstractUserModel):
             self._user_state.current = doc.doc_id()
             self._user_state.active_session = bool(np.random.binomial(1, 1 - P_EXIT_ACCEPTED))
         else:
-            self._user_state.current = np.random.choice(DOC_NUM)
+            self._user_state.current = np.random.choice(c.DOC_NUM)
             self._user_state.active_session = bool(np.random.binomial(1, 1 - P_EXIT_NOT_ACCEPTED))
 
     def is_terminal(self):

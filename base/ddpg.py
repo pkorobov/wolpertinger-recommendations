@@ -2,8 +2,8 @@ import math
 import random
 
 import gym
+from .noise import GaussianNoise, AdaptiveParamNoiseSpec
 import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -38,17 +38,6 @@ class ReplayBuffer:
 
     def __len__(self):
         return len(self.buffer)
-
-
-class GaussNoise:
-    def __init__(self, sigma):
-        super().__init__()
-
-        self.sigma = sigma
-
-    def get_action(self, action):
-        noisy_action = np.random.normal(action, self.sigma)
-        return noisy_action
 
 
 class Critic(nn.Module):
@@ -117,7 +106,7 @@ class Actor(nn.Module):
 
 
 class DDPG:
-    def __init__(self, state_dim, action_dim, summary_writer=None, noise=None,
+    def __init__(self, state_dim, action_dim, summary_writer=None, noise_sigma=None,
                  buffer_size=10000, hidden_dim=256,  soft_tau=1e-3, batch_size=128,
                  gamma=0.99, init_w_actor=3e-3, init_w_critic=3e-3, critic_lr=1e-3,
                  actor_lr=1e-4, actor_weight_decay=0., critic_weight_decay=0., **kwargs):
@@ -137,7 +126,7 @@ class DDPG:
         self.action_dim = action_dim
         self.replay_buffer = ReplayBuffer(buffer_size)
         self.soft_tau = soft_tau
-        self.noise = noise
+        self.noise = GaussianNoise(noise_sigma)
         self.summary_writer = summary_writer
         self.batch_size = batch_size
         self.gamma = gamma

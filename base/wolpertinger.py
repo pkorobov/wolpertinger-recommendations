@@ -1,5 +1,5 @@
 from base.ddpg import DDPG
-import environment
+import matrix_env
 import config
 import gym
 from gym.core import Env

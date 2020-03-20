@@ -1,18 +1,18 @@
 from recsim.agent import AbstractEpisodicRecommenderAgent
 from base.wolpertinger import *
 from gym import spaces
-import config
+import config as c
+
 
 class OptimalAgent(AbstractEpisodicRecommenderAgent):
 
-    # TODO: change filename of environment.py: conflicts with recsim.simulator submodule and local variables
-    def __init__(self, environment):
-        super(OptimalAgent, self).__init__(environment.action_space)
-        self._observation_space = environment.observation_space
+    def __init__(self, env):
+        super(OptimalAgent, self).__init__(env.action_space)
+        self._observation_space = env.observation_space
 
     def step(self, reward, observation):
         state = self._extract_state(observation)
-        return [config.W[state.argmax(), :].argmax()]
+        return [c.W[state.argmax(), :].argmax()]
 
     def _extract_state(self, observation):
         user_space = self._observation_space.spaces['user']
@@ -27,7 +27,7 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
 
         self._observation_space = env.observation_space
         self.agent = Wolpertinger(state_dim, action_dim,
-                                       env, k_ratio=k_ratio, **kwargs)
+                                  env, k_ratio=k_ratio, **kwargs)
         self.agent.t = 0
         self.current_episode = {}
         self.eval_mode = eval_mode
@@ -48,7 +48,7 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
 
     def _act(self, state):
         if np.random.rand() < self.agent.eps:
-            action = np.eye(environment.DOC_NUM)[np.random.randint(environment.DOC_NUM)]
+            action = np.eye(c.DOC_NUM)[np.random.randint(c.DOC_NUM)]
         else:
             action = self.agent.predict(state)
         self.current_episode = {

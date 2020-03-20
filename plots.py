@@ -11,9 +11,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--path', default='logs')
-args = parser.parse_args()
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=['orange', 'green', 'red', 'blue', 'gray'])
 plt.rcParams['axes.grid'] = True
 
@@ -39,7 +36,7 @@ def _load_run(path):
     return data
 
 
-def plot_averaged_runs(logdir=args.path, averaging=True):
+def plot_averaged_runs(logdir='logs', averaging=True):
 
     runs = pd.DataFrame()
 
@@ -107,4 +104,7 @@ def plot_2d_function(summary_writer, func, tag, step):
     return fig
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--path', default='logs')
+    args = parser.parse_args()
     plot_averaged_runs(args.path)
