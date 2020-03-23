@@ -22,7 +22,7 @@ args = parser.parse_args()
 c.init_config(args.parameters)
 
 
-RUNS = 2
+RUNS = 5
 MAX_TOTAL_STEPS = c.MAX_TOTAL_STEPS
 
 torch.backends.cudnn.deterministic = True

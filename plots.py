@@ -13,8 +13,8 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 # mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=['orange', 'green', 'red', 'blue', 'gray'])
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(
-    color=['#d53e4f', '#f46d43', '#fdae61', '#fee08b',
-           '#e6f598', '#abdda4', '#66c2a5', '#3288bd']
+    color=['#e41a1c', '#377eb8', '#4daf4a', '#984ea3',
+           '#ff7f00', '#ffff33', '#a65628', '#f781bf']
 )
 plt.rcParams['axes.grid'] = True
 
