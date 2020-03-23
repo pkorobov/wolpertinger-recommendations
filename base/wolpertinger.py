@@ -43,13 +43,13 @@ class Wolpertinger(DDPG):
                                     .predict(np.eye(config.DOC_NUM)[i], with_noise=False)
                                      for i in range(config.DOC_NUM)])
 
-                plots.heatmap(self.summary_writer, q_values.round(3), 'Q values/main', self.t)
-                plots.heatmap(self.summary_writer, q_values_target.round(3), 'Q values/target', self.t)
+                plots.heatmap(self.summary_writer, q_values.round(3), 'Q_values/main', self.t)
+                plots.heatmap(self.summary_writer, q_values_target.round(3), 'Q_values/target', self.t)
                 plots.heatmap(self.summary_writer, actions.round(3), 'policy/actions', self.t)
                 if config.DOC_NUM == 2:
                     plots.plot_2d_function(self.summary_writer,
                                            lambda x, y: self.critic.get_q_values([[0.0, 1.0]], [[x, y]]),
-                                           'Q values/q_values_s=0', self.t)
+                                           'Q_values/q_values_s=0', self.t)
         return action
 
     def compute_actions(self, state_num=0, a=None, dim=None):

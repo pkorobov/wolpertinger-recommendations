@@ -170,10 +170,10 @@ class DDPG:
         grad_critic = torch.cat([p.grad.flatten() for p in self.critic.parameters()])
 
         if self.summary_writer:
-            self.summary_writer.add_scalar('loss/Actor loss', actor_loss, self.t)
-            self.summary_writer.add_scalar('loss/Critic loss', critic_loss, self.t)
-            self.summary_writer.add_scalar('extra/Actor gradient norm', grad_actor.norm(), self.t)
-            self.summary_writer.add_scalar('extra/Critic gradient norm', grad_critic.norm(), self.t)
+            self.summary_writer.add_scalar('loss/Actor_loss', actor_loss, self.t)
+            self.summary_writer.add_scalar('loss/Critic_loss', critic_loss, self.t)
+            self.summary_writer.add_scalar('extra/Actor_gradient_norm', grad_actor.norm(), self.t)
+            self.summary_writer.add_scalar('extra/Critic_gradient_norm', grad_critic.norm(), self.t)
 
         soft_update(self.critic_target, self.critic, self.soft_tau)
         soft_update(self.actor_target, self.actor, self.soft_tau)

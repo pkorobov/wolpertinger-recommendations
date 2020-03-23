@@ -14,6 +14,7 @@ from recsim.agents.random_agent import RandomAgent
 import numpy as np
 import itertools
 from pathlib import Path
+import logging
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--parameters', default='parameters/alternating_1.json')
@@ -21,11 +22,16 @@ args = parser.parse_args()
 c.init_config(args.parameters)
 
 
-RUNS = 5
+RUNS = 2
 MAX_TOTAL_STEPS = c.MAX_TOTAL_STEPS
 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
+
+
+def setup_logging():
+    logging.basicConfig(format='[%(asctime)s] %(levelname)s %(message)s', level=logging.INFO, datefmt='%I:%M:%S')
+    logging.getLogger().setLevel(logging.INFO)
 
 
 def create_random_agent(sess, env, **kwargs):
@@ -45,7 +51,6 @@ def create_wolp_agent_with_ratio(k_ratio=0.1, **kwargs):
     return create_wolp_agent
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 start_time = datetime.now().strftime('%y.%m.%d %H-%M')
 
 
@@ -68,8 +73,10 @@ def fix_seed(seed):
 def main():
     """
     See results with to compare different agents
-      tensorboard --logdir /tmp/recsim
+      tensorboard --logdir logs --samples_per_plugin "images=100"
     """
+    setup_logging()
+
     env = recsim_gym.RecSimGymEnv(
         environment.SingleUserEnvironment(
                         me.UserModel(), me.DocumentSampler(), c.DOC_NUM,
@@ -99,9 +106,11 @@ def main():
                  create_wolp_agent_with_ratio(k_ratio, state_dim=c.DOC_NUM, action_dim=c.DOC_NUM, **parameters))
         )
 
-    for agent_name, create_function in agents:
+    for agent_number, (agent_name, create_function) in enumerate(agents):
+        logging.info(f"Running agent #{agent_number + 1} of {len(agents)}...")
         for run in range(RUNS):
 
+            logging.info(f"RUN #{run + 1} of {RUNS}")
             summary_writer = SummaryWriter(base_dir / "{}/run_{}/train".format(agent_name, run))
             fix_seed(run)
             c.init_w()
@@ -129,6 +138,8 @@ def main():
 
                 summary_writer.add_scalar('AverageEpisodeRewards', episode_reward, step_number)
             summary_writer.close()
+
+    logging.disable()
     plot_averaged_runs(str(base_dir))
 
 
