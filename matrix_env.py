@@ -3,49 +3,24 @@ from gym import spaces
 from recsim import document
 from recsim import user
 from recsim.choice_model import AbstractChoiceModel
-
-SEED = 1
-np.random.seed(SEED)
-
-from pyarrow import parquet as pq
-purchases = pq.read_table("purchases-2020-02-19.parquet").to_pandas()
-
-DOC_NUM = 200
-W = np.zeros((10000, 10000))
-counts = np.zeros((10000, 10000))
-
-for i, row in purchases.iloc[:10000].iterrows():
-    goods = [*map(lambda x: int(x) - 1, row[0])]
-    clicks = row[1]
-
-    i = 0
-    for index, next_index in zip(goods[:-1], goods[1:]):
-        W[index, next_index] += clicks[i + 1]
-        counts[index, next_index] += 1
-        i += 1
-
-W = (W[:DOC_NUM] + 1) / (counts[:DOC_NUM] + 1000)
-W = W / W.max() * 0.8
-
+import config as c
 
 P_EXIT_ACCEPTED = 0.1
 P_EXIT_NOT_ACCEPTED = 0.2
-
-TIME_STEP = 0.0
 
 
 class Document(document.AbstractDocument):
 
     def __init__(self, doc_id):
         super(Document, self).__init__(doc_id)
-        
+
     def create_observation(self):
         return np.array([self._doc_id])
 
     @staticmethod
     def observation_space():
-        return spaces.Discrete(DOC_NUM)
-  
+        return spaces.Discrete(c.DOC_NUM)
+
     def __str__(self):
         return "Document #{}".format(self._doc_id)
 
@@ -53,17 +28,17 @@ class Document(document.AbstractDocument):
 class DocumentSampler(document.AbstractDocumentSampler):
 
     def __init__(self, doc_ctor=Document):
-        super(DocumentSampler, self).__init__(doc_ctor, seed=SEED)
+        super(DocumentSampler, self).__init__(doc_ctor)
         self._doc_count = 0
-        
+
     def sample_document(self):
-        doc = self._doc_ctor(self._doc_count % DOC_NUM)
+        doc = self._doc_ctor(self._doc_count % c.DOC_NUM)
         self._doc_count += 1
         return doc
 
 
 class UserState(user.AbstractUserState):
-    
+
     def __init__(self, user_id, current, active_session=True):
         self.user_id = user_id
         self.current = current
@@ -77,21 +52,21 @@ class UserState(user.AbstractUserState):
 
     @staticmethod
     def observation_space():
-        return spaces.Discrete(DOC_NUM)
+        return spaces.Discrete(c.DOC_NUM)
 
     def score_document(self, doc_obs):
-        return W[self.current, doc_obs[0]]
+        return c.W[self.current, doc_obs[0]]
 
 
 class StaticUserSampler(user.AbstractUserSampler):
 
     def __init__(self, user_ctor=UserState):
-        super(StaticUserSampler, self).__init__(user_ctor, seed=SEED)
+        super(StaticUserSampler, self).__init__(user_ctor)
         self.user_count = 0
 
     def sample_user(self):
         self.user_count += 1
-        sampled_user = self._user_ctor(self.user_count, np.random.randint(DOC_NUM))
+        sampled_user = self._user_ctor(self.user_count, np.random.randint(c.DOC_NUM))
         return sampled_user
 
 
@@ -122,8 +97,8 @@ class UserChoiceModel(AbstractChoiceModel):
         if np.random.random() < self.scores[0]:
             return 0
 
-class UserModel(user.AbstractUserModel):
 
+class UserModel(user.AbstractUserModel):
     def __init__(self):
         super(UserModel, self).__init__(Response, StaticUserSampler(), 1)
         self.choice_model = UserChoiceModel()
@@ -147,16 +122,13 @@ class UserModel(user.AbstractUserModel):
         if len(slate_documents) != 1:
             raise ValueError("Expecting single document, but got: {}".format(slate_documents))
 
-        global TIME_STEP
-        TIME_STEP += 1.0
-
         response = responses[0]
         doc = slate_documents[0]
         if response.accept:
             self._user_state.current = doc.doc_id()
             self._user_state.active_session = bool(np.random.binomial(1, 1 - P_EXIT_ACCEPTED))
         else:
-            self._user_state.current = np.random.choice(DOC_NUM)
+            self._user_state.current = np.random.choice(c.DOC_NUM)
             self._user_state.active_session = bool(np.random.binomial(1, 1 - P_EXIT_NOT_ACCEPTED))
 
     def is_terminal(self):

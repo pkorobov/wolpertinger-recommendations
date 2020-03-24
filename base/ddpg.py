@@ -12,12 +12,12 @@ import itertools
 import copy
 
 use_cuda = torch.cuda.is_available()
-device   = torch.device("cuda" if use_cuda else "cpu")
-print(use_cuda)
+device = torch.device("cuda" if use_cuda else "cpu")
 
 def soft_update(target, source, tau):
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
+
 
 class ReplayBuffer:
     def __init__(self, capacity):
@@ -39,12 +39,8 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
-class GaussNoise:
-    """
-    For continuous environments only.
-    Adds spherical Gaussian noise to the action produced by actor.
-    """
 
+class GaussNoise:
     def __init__(self, sigma):
         super().__init__()
 
@@ -54,24 +50,6 @@ class GaussNoise:
         noisy_action = np.random.normal(action, self.sigma)
         return noisy_action
 
-class NormalizedActions(gym.ActionWrapper):
-
-    def action(self, action):
-        low_bound = self.action_space.low
-        upper_bound = self.action_space.high
-
-        action = low_bound + (action + 1.0) * 0.5 * (upper_bound - low_bound)
-        action = np.clip(action, low_bound, upper_bound)
-
-        return action
-
-    def reverse_action(self, action):
-        low_bound = self.action_space.low
-        upper_bound = self.action_space.high
-
-        action = 2 * (action - low_bound) / (upper_bound - low_bound) - 1
-        action = np.clip(action, low_bound, upper_bound)
-        return action
 
 class Critic(nn.Module):
     def __init__(
@@ -86,20 +64,11 @@ class Critic(nn.Module):
             nn.Linear(num_inputs + num_actions, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
-            # nn.LayerNorm(hidden_size),
             nn.ReLU(),
         )
         self.head = nn.Linear(hidden_size, 1)
-
-        # nn.init.xavier_uniform_(self.net[0].weight)
-        # nn.init.zeros_(self.net[0].bias)
-        # nn.init.xavier_uniform_(self.net[2].weight)
-        # nn.init.zeros_(self.net[2].bias)
-
         nn.init.uniform_(self.head.weight, -init_w, init_w)
-        # nn.init.ones_(self.head.weight)
         nn.init.zeros_(self.head.bias)
-
 
     def forward(self, state, action):
         x = torch.cat([state, action], 1)
@@ -114,6 +83,7 @@ class Critic(nn.Module):
         q_value = q_value.detach().cpu().numpy()
         return q_value
 
+
 class Actor(nn.Module):
     def __init__(
             self,
@@ -125,30 +95,18 @@ class Actor(nn.Module):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(num_inputs, hidden_size),
-            # nn.LayerNorm(hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
-            # nn.LayerNorm(hidden_size),
             nn.ReLU(),
         )
         self.head = nn.Linear(hidden_size, num_actions)
-
-        # nn.init.xavier_uniform_(self.net[0].weight)
-        # nn.init.zeros_(self.net[0].bias)
-        # nn.init.xavier_uniform_(self.net[2].weight)
-        # nn.init.zeros_(self.net[2].bias)
-
         nn.init.uniform_(self.head.weight, -init_w, init_w)
-        # nn.init.ones_(self.head.weight)
         nn.init.zeros_(self.head.bias)
 
     def forward(self, state):
-        # x = state.new_zeros(state.shape)
-        # x[:, 6] = 1
-        # return x
         x = self.net(state)
         x = self.head(x)
-        x = F.tanh(x)
+        x = torch.tanh(x)
         return x
 
     def get_action(self, state):
@@ -157,23 +115,24 @@ class Actor(nn.Module):
         action = action.detach().cpu().numpy()[0]
         return action
 
+
 class DDPG:
     def __init__(self, state_dim, action_dim, summary_writer=None, noise=None,
-                 buffer_size=10000, hidden_dim=16, critic_lr=1e-3,
-                 actor_lr=1e-4, soft_tau=1e-3, batch_size=128,
-                 gamma=0.99, actor_weight_decay=0., critic_weight_decay=0., **kwargs):
+                 buffer_size=10000, hidden_dim=256,  soft_tau=1e-3, batch_size=128,
+                 gamma=0.99, init_w_actor=3e-3, init_w_critic=3e-3, critic_lr=1e-3,
+                 actor_lr=1e-4, actor_weight_decay=0., critic_weight_decay=0., **kwargs):
 
-        self.actor = Actor(state_dim, action_dim, hidden_dim).to(device)
+        self.actor = Actor(state_dim, action_dim, hidden_dim, init_w=init_w_actor).to(device)
         self.actor_target = copy.deepcopy(self.actor)
-        # self.actor_optimizer = AdamCustom(self.actor.parameters(), lr=actor_lr)
-        self.actor_optimizer = torch.optim.Adam(self.actor.parameters(),
-                                                lr=actor_lr, weight_decay=actor_weight_decay)
+        self.actor_optimizer = optim.Adam(self.actor.parameters(),
+                                          lr=actor_lr,
+                                          weight_decay=actor_weight_decay)
 
-        self.critic = Critic(state_dim, action_dim, hidden_dim).to(device)
+        self.critic = Critic(state_dim, action_dim, hidden_dim, init_w=init_w_critic).to(device)
         self.critic_target = copy.deepcopy(self.critic)
-        # self.critic_optimizer = AdamCustom(self.critic.parameters(), lr=critic_lr)
-        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(),
-                                                 lr=critic_lr, weight_decay=critic_weight_decay)
+        self.critic_optimizer = optim.Adam(self.critic.parameters(),
+                                           lr=critic_lr,
+                                           weight_decay=critic_weight_decay)
 
         self.action_dim = action_dim
         self.replay_buffer = ReplayBuffer(buffer_size)
@@ -183,10 +142,10 @@ class DDPG:
         self.batch_size = batch_size
         self.gamma = gamma
 
-    def predict(self, state):
+    def predict(self, state, with_noise=True):
         self.actor.eval()
         action = self.actor.get_action(state)
-        if self.noise:
+        if self.noise and with_noise:
             action = self.noise.get_action(action)
         self.actor.train()
         return action
@@ -202,13 +161,6 @@ class DDPG:
         reward = torch.tensor(reward, dtype=torch.float32).unsqueeze(1).to(device)
         done = torch.tensor(np.float32(done)).unsqueeze(1).to(device)
 
-        actor_loss = self.critic(state, self.actor(state))
-        actor_loss = -actor_loss.mean()
-
-        self.actor_optimizer.zero_grad()
-        actor_loss.backward()
-        self.actor_optimizer.step()
-
         current_q = self.critic(state, action)
         target_q = self.critic_target(next_state, self.actor_target(next_state))
         target_q = reward + ((1.0 - done) * self.gamma * target_q).detach()
@@ -216,8 +168,14 @@ class DDPG:
 
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
-        # torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=0.1)
         self.critic_optimizer.step()
+
+        actor_loss = self.critic(state, self.actor(state))
+        actor_loss = -actor_loss.mean()
+
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        self.actor_optimizer.step()
 
         grad_actor = torch.cat([p.grad.flatten() for p in self.actor.parameters()])
         grad_critic = torch.cat([p.grad.flatten() for p in self.critic.parameters()])

@@ -1,0 +1,24 @@
+{
+  "agent": [
+        {
+          "noise_sigma": 0.05,
+          "critic_lr": 1e-3,
+          "actor_lr": 1e-3,
+          "soft_tau": 1e-4,
+          "hidden_dim": 256,
+          "batch_size": 128,
+          "buffer_size": 10000,
+          "gamma": 0.8,
+          "actor_weight_decay": 1e-4,
+          "critic_weight_decay": 1e-3
+        }
+  ],
+  "agent_param_strings": [
+      "noise=0.05, clr=1e-3, alr=1e-3, awd=1s-4, cwd=1e-3, tau=1e-4"
+  ],
+  "env": {
+    "type": "movies",
+    "doc_num": 10000,
+    "max_total_steps": 2000
+  }
+}

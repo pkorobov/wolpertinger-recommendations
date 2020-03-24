@@ -1,58 +1,58 @@
-import os
 import shutil
-
-from recsim.agents.random_agent import RandomAgent
-from recsim.simulator import recsim_gym, environment
-from recsim_custom import TrainRunnerCustom
-from base.ddpg import GaussNoise
-from scalar_aggregator import plot_averaged_runs
-
 import torch
-import numpy as np
-import random
+from recsim.simulator import recsim_gym, environment
+from plots import plot_averaged_runs
+from tensorboardX import SummaryWriter
 import os
-from environment import *
-from agent import WolpAgent, StaticAgent
 from datetime import datetime
-import json
-from pyarrow import parquet as pq
+import random
+import argparse
+import config as c
+import matrix_env as me
+from agent import WolpertingerRecSim, OptimalAgent
+from recsim.agents.random_agent import RandomAgent
+import numpy as np
+import itertools
+from pathlib import Path
+import logging
 
-RUNS = 3
-MAX_TRAINING_STEPS = 15
-NUM_ITERATIONS = 1000
-EVAL_EPISODES = 100
+parser = argparse.ArgumentParser()
+parser.add_argument('--parameters', default='parameters.json')
+args = parser.parse_args()
+c.init_config(args.parameters)
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+
+RUNS = 5
+MAX_TOTAL_STEPS = c.MAX_TOTAL_STEPS
+
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-
-start_time = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-
-
-def create_random_agent(sess, environment, eval_mode, summary_writer=None):
-    return RandomAgent(environment.action_space, random_seed=SEED)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
 
 
-def create_good_agent(sess, environment, eval_mode, summary_writer=None):
-    return StaticAgent(environment, 6)
+def setup_logging():
+    logging.basicConfig(format='[%(asctime)s] %(levelname)s %(message)s', level=logging.INFO, datefmt='%I:%M:%S')
+    logging.getLogger().setLevel(logging.INFO)
 
 
-def create_dqn_agent(sess, environment, eval_mode, summary_writer=None):
-    kwargs = {
-        'observation_space': environment.observation_space,
-        'action_space': environment.action_space,
-        'summary_writer': summary_writer,
-        'eval_mode': eval_mode,
-    }
-    return full_slate_q_agent.FullSlateQAgent(sess, **kwargs)
+def create_random_agent(sess, env, **kwargs):
+    return RandomAgent(env.action_space)
 
 
-def create_wolp_agent_with_ratio(k_ratio=0.1, policy_kwargs=None, action_noise=None, **kwargs):
+def create_optimal_agent(sess, env, **kwargs):
+    return OptimalAgent(env)
 
-    def create_wolp_agent(sess, environment, eval_mode, summary_writer=None):
-        return WolpAgent(environment, action_space=environment.action_space,
-                         k_ratio=k_ratio, action_noise=action_noise, summary_writer=summary_writer,
-                         eval_mode=eval_mode, **kwargs)
+
+def create_wolp_agent_with_ratio(k_ratio=0.1, **kwargs):
+    def create_wolp_agent(sess, env, eval_mode, summary_writer=None):
+        return WolpertingerRecSim(env, action_space=env.action_space,
+                                  k_ratio=k_ratio, summary_writer=summary_writer,
+                                  eval_mode=eval_mode, **kwargs)
+
     return create_wolp_agent
+
+
+start_time = datetime.now().strftime('%y.%m.%d %H-%M')
 
 
 def cleanup_dir(dir_path):
@@ -63,113 +63,85 @@ def cleanup_dir(dir_path):
     return dir_path
 
 
+def fix_seed(seed):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    random.seed(seed)
+
+
 def main():
     """
     See results with to compare different agents
-      tensorboard --logdir /tmp/recsim
+      tensorboard --logdir logs --samples_per_plugin "images=100"
     """
+    setup_logging()
+
     env = recsim_gym.RecSimGymEnv(
-        environment.Environment(UserModel(), DocumentSampler(), DOC_NUM, 1, resample_documents=False),
-        clicked_reward
+        environment.SingleUserEnvironment(
+                        me.UserModel(), me.DocumentSampler(), c.DOC_NUM,
+                        slate_size=1, resample_documents=False),
+        me.clicked_reward
     )
-    SEED = 1
-    env.seed(SEED)
 
-    # static env
-    # parameters = {'action_dim': DOC_NUM,
-    #               'state_dim': DOC_NUM,
-    #               'noise': GaussNoise(sigma=0.1),
-    #               'critic_lr': 1e-3,
-    #               'actor_lr': 1e-4,
-    #               'soft_tau': 1e-3,
-    #               'hidden_dim': 16,
-    #               'batch_size': 128,
-    #               'buffer_size': 1000,
-    #               'gamma': 0.99}
+    # base_dir = 'logs/' + c.ENV_PARAMETERS['type'] + '/' + start_time + '/'
+    base_dir = Path('logs') / start_time / c.ENV_PARAMETERS['type']
+    # os.makedirs(base_dir, exist_ok=True)
 
-    items = pq.read_table("embeddings.parquet").to_pandas()
-    embeddings = np.vstack(items.sort_values(by='rank')['embedding'])[:DOC_NUM]
-    embeddings = embeddings / np.abs(embeddings).max(axis=0)
-    d = embeddings.shape[1]
-    # shift env
-    num_actions = lambda actions, k_ratio: max(1, int(actions * k_ratio))
+    # base_dir = cleanup_dir(Path('logs') / c.ENV_PARAMETERS['type'])
 
-    # parameters = {'action_dim': d,
-    #               'state_dim': d,
-    #               'noise': GaussNoise(sigma=0.2),
-    #               'critic_lr': 1e-3,
-    #               'actor_lr': 3e-4,
-    #               'soft_tau': 1e-3,
-    #               'hidden_dim': 256,
-    #               'batch_size': 128,
-    #               'buffer_size': 20000,
-    #               'gamma': 0.8,
-    #               'embeddings': embeddings
-    #               # 'actor_weight_decay': 0.001,
-    #               # 'critic_weight_decay': 0.01}
-    #               }
+    def wolpertinger_name(actions, k_ratio, param_string):
+        k = max(1, int(actions * k_ratio))
+        return "Wolpertinger {}NN ({})".format(k, param_string)
 
-    parameters = {'action_dim': d,
-                  'state_dim': d,
-                  'noise': GaussNoise(sigma=0.4),
-                  'critic_lr': 1e-3,
-                  'actor_lr': 3e-4,
-                  'soft_tau': 1e-3,
-                  'hidden_dim': 256,
-                  'batch_size': 128,
-                  'buffer_size': 20000,
-                  'gamma': 0.8,
-                  'embeddings': embeddings
-                  # 'actor_weight_decay': 0.001,
-                  # 'critic_weight_decay': 0.01}
-                  }
+    k_ratios = [0.33]
+
     agents = [
-                ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.1)) + "NN, normal noise)",
-                 create_wolp_agent_with_ratio(0.1, **parameters)),
-                # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 0.33)) + "NN, normal noise)",
-                #  create_wolp_agent_with_ratio(0.33, **parameters)),
-                # ('Wolpertinger ' + "(" + str(num_actions(DOC_NUM, 1.0)) + "NN, normal noise)",
-                #  create_wolp_agent_with_ratio(1.0, **parameters)),
-                ("Optimal", create_good_agent),
+        # ("Optimal", create_optimal_agent)
     ]
 
-    # base_dir = cleanup_dir('logs/')
+    dim = c.EMBEDDINGS.shape[1]
+    for k_ratio, (parameters, param_string) in itertools.product(k_ratios, zip(c.AGENT_PARAMETERS, c.AGENT_PARAM_STRINGS)):
+        agents.append(
+                (wolpertinger_name(c.DOC_NUM, k_ratio, param_string),
+                 create_wolp_agent_with_ratio(k_ratio, state_dim=dim, action_dim=dim,
+                                              embeddings=c.EMBEDDINGS, **parameters))
+        )
 
-    experiment_type = 'embeddings'
-    # experiment_type = 'static_dominant'
-    # experiment_type = 'alternating_most_acceptable'
-    # experiment_type = 'alternating_pair'
-    # experiment_type = 'shift'
-
-    base_dir = 'logs/' + experiment_type + ' (' + start_time + ')'
-    os.makedirs(base_dir)
-
-    # with open(base_dir + 'params.txt', 'w') as f:
-    #     f.write(json.dumps(parameters))
-    for agent_name, create_agent_fun in agents:
-        print("Running %s..." % agent_name)
+    for agent_number, (agent_name, create_function) in enumerate(agents):
+        logging.info(f"Running agent #{agent_number + 1} of {len(agents)}...")
         for run in range(RUNS):
-            SEED = run
-            os.environ['PYTHONHASHSEED'] = str(SEED)
-            np.random.seed(SEED)
-            torch.manual_seed(SEED)
 
-            print("RUN # %s of %s" % (run, RUNS))
-            dir = base_dir + '/' + agent_name + "/run_" + str(run)
+            logging.info(f"RUN #{run + 1} of {RUNS}")
+            summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{run}/train")
+            fix_seed(run)
+            c.init_w()
 
-            runner = TrainRunnerCustom(
-                base_dir=dir,
-                create_agent_fn=create_agent_fun,
-                env=env,
-                max_training_steps=MAX_TRAINING_STEPS,
-                num_iterations=NUM_ITERATIONS,
-                episode_log_file='episodes_log_train.csv',
-                experiment_type=experiment_type,
-                seed=SEED,
-                change_freq=400
-            )
-            runner.run_experiment()
-    plot_averaged_runs(base_dir)
+            agent = create_function(None, env, eval_mode=False, summary_writer=summary_writer)
+            step_number = 0
+            observation = env.reset()
+            while step_number < MAX_TOTAL_STEPS:
+                episode_reward = 0
+
+                # episode
+                action = agent.begin_episode(observation)
+                while True:
+                    observation, reward, done, info = env.step(action)
+                    step_number += 1
+                    episode_reward += reward
+                    if done:
+                        break
+                    else:
+                        action = agent.step(reward, observation)
+                agent.end_episode(reward, observation)
+
+                summary_writer.add_scalar('AverageEpisodeRewards', episode_reward, step_number)
+            summary_writer.close()
+
+    logging.disable()
+    plot_averaged_runs(str(base_dir))
+
 
 if __name__ == "__main__":
     main()
