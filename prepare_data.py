@@ -8,7 +8,7 @@ from tqdm import tqdm
 import logging
 from sortedcontainers import SortedSet
 import itertools
-
+from pathlib import Path
 
 def setup_logging():
     logging.basicConfig(format='[%(asctime)s] %(levelname)s %(message)s', level=logging.INFO, datefmt='%I:%M:%S')
@@ -32,7 +32,7 @@ for i, file in enumerate(os.listdir(path)):
             df = None
     else:
         try:
-            df = pd.concat([df, pd.read_pickle(path + "/" + file)])
+            df = pd.concat([df, pd.read_pickle(Path(path) / file)])
         except:
             logging.info("Error!")
 
@@ -47,10 +47,11 @@ s = sorted(np.array(list(s)).astype(np.int32))
 to_new_index = dict(zip(s, range(len(s))))
 to_old_index = dict(zip(range(len(s)), s))
 
-with open("/home/p.korobov/data/netflix/matrix_env/to_old_index.pkl", "wb") as file:
+path = "/home/p.korobov/data/netflix/matrix_env"
+with open(Path(path) / "to_old_index.pkl", "wb") as file:
     pickle.dump(to_old_index, file)
 
-with open("/home/p.korobov/data/netflix/matrix_env/to_new_index.pkl", "wb") as file:
+with open(Path(path) / "to_new_index.pkl", "wb") as file:
     pickle.dump(to_new_index, file)
 
 # iter = 20
@@ -64,7 +65,7 @@ max_norm = np.linalg.norm([*embeddings.values()], ord=np.inf, axis=1).max()
 
 for elem in s:
     embeddings[to_new_index[elem]] /= max_norm
-with open("/home/p.korobov/data/netflix/matrix_env/embeddings_dict.pkl", "wb") as file:
+with open(Path(path) / "embeddings_dict.pkl", "wb") as file:
     pickle.dump(embeddings, file)
 logging.info("Embeddings have been learned")
 

@@ -20,6 +20,6 @@
   "env": {
     "type": "movies",
     "doc_num": 10000,
-    "max_total_steps": 10000000
+    "max_total_steps": 1000
   }
 }

@@ -15,6 +15,8 @@ import numpy as np
 import itertools
 from pathlib import Path
 import logging
+from tqdm import tqdm
+import multiprocessing as mp
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--parameters', default='parameters.json')
@@ -24,6 +26,7 @@ c.init_config(args.parameters)
 
 RUNS = 5
 MAX_TOTAL_STEPS = c.MAX_TOTAL_STEPS
+START_TIME = datetime.now().strftime('%y.%m.%d %H-%M')
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 torch.backends.cudnn.deterministic = True
@@ -52,9 +55,6 @@ def create_wolp_agent_with_ratio(k_ratio=0.1, **kwargs):
     return create_wolp_agent
 
 
-start_time = datetime.now().strftime('%y.%m.%d %H-%M')
-
-
 def cleanup_dir(dir_path):
     if os.path.exists(dir_path) and os.path.isdir(dir_path):
         print("Cleaning up {}".format(dir_path))
@@ -69,6 +69,34 @@ def fix_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
     random.seed(seed)
+
+def run_agent(env, create_function, agent_name, base_dir, seed):
+
+    logging.info(f"RUN #{seed + 1} of {RUNS}")
+    summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{seed}/train")
+    fix_seed(seed)
+    c.init_w()
+
+    agent = create_function(None, env, eval_mode=False, summary_writer=summary_writer)
+    step_number = 0
+    observation = env.reset()
+    while step_number < MAX_TOTAL_STEPS:
+        episode_reward = 0
+
+        # episode
+        action = agent.begin_episode(observation)
+        while True:
+            observation, reward, done, info = env.step(action)
+            step_number += 1
+            episode_reward += reward
+            if done:
+                break
+            else:
+                action = agent.step(reward, observation)
+        agent.end_episode(reward, observation)
+
+        summary_writer.add_scalar('AverageEpisodeRewards', episode_reward, step_number)
+    summary_writer.close()
 
 
 def main():
@@ -85,10 +113,7 @@ def main():
         me.clicked_reward
     )
 
-    # base_dir = 'logs/' + c.ENV_PARAMETERS['type'] + '/' + start_time + '/'
-    base_dir = Path('logs') / start_time / c.ENV_PARAMETERS['type']
-    # os.makedirs(base_dir, exist_ok=True)
-
+    base_dir = Path('logs') / START_TIME / c.ENV_PARAMETERS['type']
     # base_dir = cleanup_dir(Path('logs') / c.ENV_PARAMETERS['type'])
 
     def wolpertinger_name(actions, k_ratio, param_string):
@@ -111,34 +136,13 @@ def main():
 
     for agent_number, (agent_name, create_function) in enumerate(agents):
         logging.info(f"Running agent #{agent_number + 1} of {len(agents)}...")
-        for run in range(RUNS):
-
-            logging.info(f"RUN #{run + 1} of {RUNS}")
-            summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{run}/train")
-            fix_seed(run)
-            c.init_w()
-
-            agent = create_function(None, env, eval_mode=False, summary_writer=summary_writer)
-            step_number = 0
-            observation = env.reset()
-            while step_number < MAX_TOTAL_STEPS:
-                episode_reward = 0
-
-                # episode
-                action = agent.begin_episode(observation)
-                while True:
-                    observation, reward, done, info = env.step(action)
-                    step_number += 1
-                    episode_reward += reward
-                    if done:
-                        break
-                    else:
-                        action = agent.step(reward, observation)
-                agent.end_episode(reward, observation)
-
-                summary_writer.add_scalar('AverageEpisodeRewards', episode_reward, step_number)
-            summary_writer.close()
-
+        with mp.Pool() as pool:
+            list(tqdm(
+                pool.imap(run_agent,
+                          ((env, create_function, agent_name, base_dir, run) for run in range(RUNS))),
+                      total=len(RUNS)
+                )
+            )
     logging.disable()
     plot_averaged_runs(str(base_dir))
 
