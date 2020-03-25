@@ -20,7 +20,6 @@ setup_logging()
 Rating = collections.namedtuple("Rating", "movie_id, rating, date")
 path = "/home/p.korobov/data/netflix/processed"
 
-MAX_W_SIZE = 10000
 
 df = None
 for i, file in enumerate(os.listdir(path)):

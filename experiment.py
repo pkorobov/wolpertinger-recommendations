@@ -51,7 +51,6 @@ def create_wolp_agent(sess, env, eval_mode, k_ratio=0.1, summary_writer=None, **
     return WolpertingerRecSim(env, action_space=env.action_space,
                               k_ratio=k_ratio, summary_writer=summary_writer,
                               eval_mode=eval_mode, **kwargs)
-    return create_wolp_agent
 
 
 def cleanup_dir(dir_path):
@@ -69,14 +68,15 @@ def fix_seed(seed):
         torch.cuda.manual_seed_all(seed)
     random.seed(seed)
 
-def run_agent(env, create_function, agent_name, base_dir, seed):
+
+def run_agent(env, create_function, agent_name, base_dir, seed, eval_mode=False):
 
     logging.info(f"RUN #{seed + 1} of {RUNS} starts...")
     summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{seed}/train")
     fix_seed(seed)
     c.init_w()
 
-    agent = create_function(None, env, eval_mode=False, summary_writer=summary_writer)
+    agent = create_function(None, env, eval_mode=eval_mode, summary_writer=summary_writer)
     step_number = 0
     observation = env.reset()
     while step_number < MAX_TOTAL_STEPS:
@@ -122,7 +122,7 @@ def main():
 
     k_ratios = [0.1]
 
-    agents = []
+    agents = [("Optimal", create_optimal_agent), ("Random", create_random_agent)]
 
     dim = c.EMBEDDINGS.shape[1]
     for k_ratio, (parameters, param_string) in itertools.product(k_ratios, zip(c.AGENT_PARAMETERS, c.AGENT_PARAM_STRINGS)):
@@ -132,9 +132,6 @@ def main():
                 (wolpertinger_name(c.DOC_NUM, k_ratio, param_string),
                  create_function)
         )
-    agents.append(
-            ("Optimal", create_optimal_agent)
-    )
 
     for agent_number, (agent_name, create_function) in enumerate(agents):
         logging.info(f"Running agent #{agent_number + 1} of {len(agents)}...")
