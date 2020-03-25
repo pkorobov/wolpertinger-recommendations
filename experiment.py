@@ -17,6 +17,7 @@ from pathlib import Path
 import logging
 from tqdm import tqdm
 import multiprocessing as mp
+from functools import partial
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--parameters', default='parameters.json')
@@ -46,12 +47,10 @@ def create_optimal_agent(sess, env, **kwargs):
     return OptimalAgent(env)
 
 
-def create_wolp_agent_with_ratio(k_ratio=0.1, **kwargs):
-    def create_wolp_agent(sess, env, eval_mode, summary_writer=None):
-        return WolpertingerRecSim(env, action_space=env.action_space,
-                                  k_ratio=k_ratio, summary_writer=summary_writer,
-                                  eval_mode=eval_mode, **kwargs)
-
+def create_wolp_agent(sess, env, eval_mode, k_ratio=0.1, summary_writer=None, **kwargs):
+    return WolpertingerRecSim(env, action_space=env.action_space,
+                              k_ratio=k_ratio, summary_writer=summary_writer,
+                              eval_mode=eval_mode, **kwargs)
     return create_wolp_agent
 
 
@@ -72,7 +71,7 @@ def fix_seed(seed):
 
 def run_agent(env, create_function, agent_name, base_dir, seed):
 
-    logging.info(f"RUN #{seed + 1} of {RUNS}")
+    logging.info(f"RUN #{seed + 1} of {RUNS} starts...")
     summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{seed}/train")
     fix_seed(seed)
     c.init_w()
@@ -97,6 +96,7 @@ def run_agent(env, create_function, agent_name, base_dir, seed):
 
         summary_writer.add_scalar('AverageEpisodeRewards', episode_reward, step_number)
     summary_writer.close()
+    logging.info(f"RUN #{seed + 1} of {RUNS} ended")
 
 
 def main():
@@ -120,29 +120,26 @@ def main():
         k = max(1, int(actions * k_ratio))
         return "Wolpertinger {}NN ({})".format(k, param_string)
 
-    k_ratios = [0.33]
+    k_ratios = [0.1]
 
-    agents = [
-        ("Optimal", create_optimal_agent)
-    ]
+    agents = []
 
     dim = c.EMBEDDINGS.shape[1]
     for k_ratio, (parameters, param_string) in itertools.product(k_ratios, zip(c.AGENT_PARAMETERS, c.AGENT_PARAM_STRINGS)):
+        create_function = partial(create_wolp_agent, k_ratio=0.1, state_dim=dim, action_dim=dim,
+                                  embeddings=c.EMBEDDINGS, **parameters)
         agents.append(
                 (wolpertinger_name(c.DOC_NUM, k_ratio, param_string),
-                 create_wolp_agent_with_ratio(k_ratio, state_dim=dim, action_dim=dim,
-                                              embeddings=c.EMBEDDINGS, **parameters))
+                 create_function)
         )
+    agents.append(
+            ("Optimal", create_optimal_agent)
+    )
 
     for agent_number, (agent_name, create_function) in enumerate(agents):
         logging.info(f"Running agent #{agent_number + 1} of {len(agents)}...")
-        with mp.Pool() as pool:
-            list(tqdm(
-                pool.imap(run_agent,
-                          ((env, create_function, agent_name, base_dir, run) for run in range(RUNS))),
-                      total=len(RUNS)
-                )
-            )
+        list(map(partial(run_agent, env, create_function, agent_name, base_dir), range(RUNS)))
+
     logging.disable()
     plot_averaged_runs(str(base_dir))
 

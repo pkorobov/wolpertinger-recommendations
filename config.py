@@ -28,7 +28,7 @@ def init_config(param_path='parameters.json'):
     MAX_TOTAL_STEPS = ENV_PARAMETERS['max_total_steps']
     W = np.zeros((DOC_NUM, DOC_NUM))
 
-    with open("home/p.korobov/data/embeddings_dict.pkl", "rb") as pickle_in:
+    with open("/home/p.korobov/data/netflix/matrix_env/embeddings_dict.pkl", "rb") as pickle_in:
         emb_dict = pickle.load(pickle_in)
         EMBEDDINGS = np.array([*map(lambda ind: emb_dict[ind], np.arange(len(emb_dict)))])
         EMBEDDINGS = EMBEDDINGS[:DOC_NUM]
@@ -36,10 +36,10 @@ def init_config(param_path='parameters.json'):
 def init_w(reinit=False):
     global W, EMBEDDINGS
     if ENV_PARAMETERS['type'] == 'movies':
-        with open("home/p.korobov/data/W_matrix.pkl", "rb") as pickle_in:
+        with open("/home/p.korobov/data/netflix/matrix_env/W_matrix.pkl", "rb") as pickle_in:
             W = pickle.load(pickle_in)
             W = W[:DOC_NUM, :DOC_NUM]
-        with open("home/p.korobov/data/embeddings_dict.pkl", "rb") as pickle_in:
+        with open("/home/p.korobov/data/netflix/matrix_env/embeddings_dict.pkl", "rb") as pickle_in:
             emb_dict = pickle.load(pickle_in)
             EMBEDDINGS = np.array([*map(lambda ind: emb_dict[ind], np.arange(len(emb_dict)))])
             EMBEDDINGS = EMBEDDINGS[:DOC_NUM]
