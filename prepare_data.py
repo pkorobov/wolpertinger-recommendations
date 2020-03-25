@@ -1,5 +1,4 @@
 import numpy as np
-from pyarrow import parquet as pq
 from gensim.models import Word2Vec
 import pickle
 import pandas as pd
@@ -19,19 +18,25 @@ def setup_logging():
 setup_logging()
 
 Rating = collections.namedtuple("Rating", "movie_id, rating, date")
-path = "/Users/p.korobov/data/netflix/processed"
+path = "/home/p.korobov/data/netflix/processed"
 
 MAX_W_SIZE = 10000
 
+df = None
 for i, file in enumerate(os.listdir(path)):
+    
     logging.info('Reading file #{}'.format(i))
-    if i == 0:
+    if df is None:
         df = pd.read_pickle(path + "/" + file)
+        if type(df) is not pd.core.frame.DataFrame:
+            df = None
     else:
         try:
             df = pd.concat([df, pd.read_pickle(path + "/" + file)])
         except:
             logging.info("Error!")
+
+
 movies_sequences = df['ratings'].apply(lambda x: [*map(lambda y: str(y[0]), x)])
 
 s = set()
@@ -42,13 +47,14 @@ s = sorted(np.array(list(s)).astype(np.int32))
 to_new_index = dict(zip(s, range(len(s))))
 to_old_index = dict(zip(range(len(s)), s))
 
-with open("to_old_index.pkl", "wb") as file:
+with open("/home/p.korobov/data/netflix/matrix_env/to_old_index.pkl", "wb") as file:
     pickle.dump(to_old_index, file)
 
-with open("to_new_index.pkl", "wb") as file:
+with open("/home/p.korobov/data/netflix/matrix_env/to_new_index.pkl", "wb") as file:
     pickle.dump(to_new_index, file)
 
-model = Word2Vec(sentences=movies_sequences, size=20, window=20, min_count=1, workers=4, sg=1, iter=20)
+# iter = 20
+model = Word2Vec(sentences=movies_sequences, size=20, window=20, min_count=1, workers=30, sg=1, iter=20, compute_loss=True)
 
 embeddings = dict()
 g = lambda x: model.wv[str(x)]
@@ -58,27 +64,30 @@ max_norm = np.linalg.norm([*embeddings.values()], ord=np.inf, axis=1).max()
 
 for elem in s:
     embeddings[to_new_index[elem]] /= max_norm
+with open("/home/p.korobov/data/netflix/matrix_env/embeddings_dict.pkl", "wb") as file:
+    pickle.dump(embeddings, file)
+logging.info("Embeddings have been learned")
 
-N = min(len(s), MAX_W_SIZE)
+N = len(s)
 W = np.zeros((N, N))
 counts = np.zeros((N, N))
 
 
 def binarize_rating(x):
-    if x.rating > 3:
+    if x > 3:
         return 1.0
-    elif x.rating == 3:
+    elif x == 3:
         return 0.5
     return 0.0
 
 
-next_ratings_window = 10
+next_ratings_window = 25
 good_ratings_cnt = 0
 all_ratings_cnt = 0
 
 for _, user_ratings in tqdm(df['ratings'].iteritems()):
 
-    good_ratings_cnt += map(lambda x: binarize_rating(x.rating), user_ratings)
+    good_ratings_cnt += np.sum([*map(lambda x: binarize_rating(x.rating), user_ratings)])
     all_ratings_cnt += len(user_ratings)
 
     dates_set = SortedSet([elem.date for elem in user_ratings])
@@ -87,18 +96,19 @@ for _, user_ratings in tqdm(df['ratings'].iteritems()):
     for i, elem in enumerate(grouped_ratings[:-1]):
         current_ratings = grouped_ratings[i].copy()
         next_ratings = []
-        for k in range(i + 1, min(len(grouped_ratings), i + 1 + 10)):
+        for k in range(i + 1, min(len(grouped_ratings), i + 1 + next_ratings_window)):
             next_ratings += grouped_ratings[k]
         for cur_rating, next_rating in itertools.product(current_ratings, next_ratings):
             assert cur_rating.date.date() < next_rating.date.date()
-            W[cur_rating.movie_id, next_rating.movie_id] += binarize_rating(next_rating.rating)
-            counts[cur_rating.movie_id, next_rating.movie_id] += 1
+            W[to_new_index[cur_rating.movie_id], to_new_index[next_rating.movie_id]] += binarize_rating(next_rating.rating)
+            counts[to_new_index[cur_rating.movie_id], to_new_index[next_rating.movie_id]] += 1
 
-# W = (W + 1) / (counts + 2)
-W = (W + 1) / (counts + all_ratings_cnt / good_ratings_cnt)
+W_1 = (W + 1) / (counts + all_ratings_cnt / good_ratings_cnt)
+with open("/home/p.korobov/data/netflix/matrix_env/W_matrix.pkl", "wb") as file:
+    pickle.dump(W_1, file)
 
-with open("W_matrix.pkl", "wb") as file:
-    pickle.dump(W, file)
-
-with open("embeddings_dict.pkl", "wb") as file:
-    pickle.dump(embeddings, file)
+W_2 = (W + 1) / (counts + 2)
+with open("/home/p.korobov/data/netflix/matrix_env/W_matrix_2.pkl", "wb") as file:
+    pickle.dump(W_2, file)
+    
+logging.info("W has been constructed")

@@ -98,7 +98,7 @@ def main():
     k_ratios = [0.33]
 
     agents = [
-        # ("Optimal", create_optimal_agent)
+        ("Optimal", create_optimal_agent)
     ]
 
     dim = c.EMBEDDINGS.shape[1]
