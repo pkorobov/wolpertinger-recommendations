@@ -11,10 +11,11 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--path', default='logs')
-args = parser.parse_args()
-mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=['orange', 'green', 'red', 'blue', 'gray'])
+# mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=['orange', 'green', 'red', 'blue', 'gray'])
+mpl.rcParams['axes.prop_cycle'] = mpl.cycler(
+    color=['#e41a1c', '#377eb8', '#4daf4a', '#984ea3',
+           '#ff7f00', '#ffff33', '#a65628', '#f781bf']
+)
 plt.rcParams['axes.grid'] = True
 
 
@@ -39,40 +40,48 @@ def _load_run(path):
     return data
 
 
-def plot_averaged_runs(logdir=args.path, averaging=True):
-
+def plot_averaged_runs(logdir='logs', averaging=True):
     runs = pd.DataFrame()
 
     agent_dirs = sorted([*filter(lambda x: os.path.isdir(logdir + '/' + x) and x[0] != '.', os.listdir(logdir))])
     agent_dirs = sorted(agent_dirs, key=len)
-    fig, ax = plt.subplots(1, len(agent_dirs), figsize=(len(agent_dirs) * 8, 8))
+    fig1, ax1 = plt.subplots(1, len(agent_dirs), figsize=(len(agent_dirs) * 8, 8))
+    fig2, ax2 = plt.subplots(figsize=(8, 8))
+
     plt.xlabel('Iterations')
     plt.ylabel('Mean episode reward')
     for i, agent in enumerate(agent_dirs):
         agent_path = logdir + '/' + agent
         if os.path.isdir(agent_path):
-            runs_num = len([*filter(lambda x: os.path.isdir(agent_path + '/' + x) and x[0] != '.', os.listdir(agent_path))])
+            runs_num = len(
+                [*filter(lambda x: os.path.isdir(f"{agent_path}/{x}") and x[0] != '.', os.listdir(agent_path))])
         else:
             continue
-        print("Train rewards of %s" % agent)
+        print(f"Train rewards of {agent}")
         for j in tqdm(range(runs_num)):
-            cur_run = pd.Series(_load_run(agent_path + "/run_%s/train" % j)['AverageEpisodeRewards'][1])
-            runs['run_%s' % j] = cur_run
+            cur_run = pd.Series(_load_run(f"{agent_path}/run_{j}/train")['AverageEpisodeRewards'][1])
+            runs[f'run_{j}'] = cur_run
         if averaging:
             runs = runs.rolling(window=30).mean()
         means = runs.mean(axis=1)
         stds = runs.std(axis=1)
         if len(agent_dirs) == 1:
-            ax.plot(means.index, means, label=agent, alpha=1.0)
-            ax.fill_between(means.index, means - stds, means + stds, alpha=0.5)
-            ax.legend(fontsize=8)
+            ax1.plot(means.index, means, label=agent, alpha=1.0)
+            ax1.fill_between(means.index, means - stds, means + stds, alpha=0.5)
+            ax1.legend(fontsize=8)
         else:
-            ax[i].plot(means.index, means, label=agent, alpha=1.0)
-            ax[i].fill_between(means.index, means - stds, means + stds, alpha=0.5)
-            ax[i].legend(fontsize=8)
+            ax1[i].plot(means.index, means, label=agent, alpha=1.0)
+            ax1[i].fill_between(means.index, means - stds, means + stds, alpha=0.5)
+            ax1[i].legend(fontsize=8)
 
-    plt.setp(ax, ylim=(-5, 30))
-    plt.savefig(logdir + '/averaged_agents.png')
+        ax2.plot(means.index, means, label=agent, alpha=1.0)
+        ax2.fill_between(means.index, means - stds, means + stds, alpha=0.5)
+        ax2.legend(fontsize=8)
+
+    plt.setp(ax1, ylim=(-5, 30))
+    plt.setp(ax2, ylim=(-5, 30))
+    fig1.savefig(logdir + '/averaged_agents.png')
+    fig2.savefig(logdir + '/averaged_agents_combined.png')
 
 
 def plot_2d_function(summary_writer, func, tag, step):
@@ -106,5 +115,10 @@ def plot_2d_function(summary_writer, func, tag, step):
     summary_writer.add_figure(tag, fig, global_step=step)
     return fig
 
+
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--path', default='logs')
+    args = parser.parse_args()
     plot_averaged_runs(args.path)
+
