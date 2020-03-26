@@ -17,7 +17,7 @@ from pathlib import Path
 import logging
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--parameters', default='parameters/alternating_1.json')
+parser.add_argument('--parameters', default='test_params.json')
 args = parser.parse_args()
 c.init_config(args.parameters)
 
@@ -70,9 +70,8 @@ def fix_seed(seed):
     random.seed(seed)
 
 
-def explore_action_space(env, agent, repeat_times=1):
+def explore_action_space(env, agent, repeat_times=1, done=None):
     fictive_observation = {'user': [np.random.randint(c.DOC_NUM)]}
-    done = None
     for k in range(repeat_times):
         for i in range(c.DOC_NUM):
             for j in range(c.DOC_NUM):
@@ -149,7 +148,7 @@ def main():
                     if c.REINIT_STEPS and step_number % c.REINIT_STEPS == 0 and step_number > 0:
                         c.init_w(reinit=True)  # works only in alternating environment
                         if c.ENV_PARAMETERS['type'] == 'alternating':
-                            explore_action_space(env, agent, repeat_times=5)
+                            explore_action_space(env, agent, repeat_times=5, done=done)
 
                     observation, reward, done, info = env.step(action)
                     step_number += 1
