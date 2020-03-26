@@ -70,6 +70,23 @@ def fix_seed(seed):
     random.seed(seed)
 
 
+def explore_action_space(env, agent, repeat_times=1):
+    fictive_observation = {'user': [np.random.randint(c.DOC_NUM)]}
+    done = None
+    for k in range(repeat_times):
+        for i in range(c.DOC_NUM):
+            for j in range(c.DOC_NUM):
+                if done or done is None:
+                    agent.begin_episode(fictive_observation)
+                fictive_observation['user'] = [i]
+                fictive_action = [j]
+                observation, reward, done, _ = env.step(fictive_action)
+                if done:
+                    agent.end_episode(reward, fictive_observation)
+                else:
+                    agent.step(reward, fictive_observation)
+
+
 def main():
     """
     See results with to compare different agents
@@ -111,13 +128,18 @@ def main():
         for run in range(RUNS):
 
             logging.info(f"RUN #{run + 1} of {RUNS}")
-            summary_writer = SummaryWriter(base_dir / "{}/run_{}/train".format(agent_name, run))
+            summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{run}/train")
             fix_seed(run)
             c.init_w()
 
             agent = create_function(None, env, eval_mode=False, summary_writer=summary_writer)
+
             step_number = 0
             observation = env.reset()
+
+            if agent_name.split(' ')[0] == 'Wolpertinger':
+                explore_action_space(env, agent, repeat_times=5)
+
             while step_number < MAX_TOTAL_STEPS:
                 episode_reward = 0
 
@@ -126,6 +148,8 @@ def main():
                 while True:
                     if c.REINIT_STEPS and step_number % c.REINIT_STEPS == 0 and step_number > 0:
                         c.init_w(reinit=True)  # works only in alternating environment
+                        if c.ENV_PARAMETERS['type'] == 'alternating':
+                            explore_action_space(env, agent, repeat_times=5)
 
                     observation, reward, done, info = env.step(action)
                     step_number += 1

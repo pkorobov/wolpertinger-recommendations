@@ -53,7 +53,7 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
             action = self.agent.predict(state)
         self.current_episode = {
             "state": state,
-            "action": action,
+            "action": action
         }
         return np.argmax(action)[np.newaxis]
 
