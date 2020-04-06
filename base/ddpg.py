@@ -10,15 +10,10 @@ import torch.optim as optim
 import torch.nn.functional as F
 import itertools
 import copy
-from .utils import ReplayBuffer
+from .utils import ReplayBuffer, soft_update
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
-
-
-def soft_update(target, source, tau):
-    for target_param, param in zip(target.parameters(), source.parameters()):
-        target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
 
 
 class GaussNoise:
@@ -33,7 +28,7 @@ class GaussNoise:
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_size, init_w=3e-3):
+    def __init__(self, state_dim, action_dim, hidden_size, max_action=1, init_w=3e-3):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(state_dim, hidden_size),
@@ -44,6 +39,8 @@ class Actor(nn.Module):
         self.head = nn.Linear(hidden_size, action_dim)
         nn.init.uniform_(self.head.weight, -init_w, init_w)
         nn.init.zeros_(self.head.bias)
+
+        self.max_action = max_action
 
     def forward(self, state):
         x = self.net(state)
@@ -86,12 +83,13 @@ class Critic(nn.Module):
 
 
 class DDPG:
-    def __init__(self, state_dim, action_dim, summary_writer=None, noise=None,
+    def __init__(self, state_dim, action_dim, summary_writer=None, expl_noise=0.1,
                  buffer_size=10000, hidden_dim=256, tau=1e-3, batch_size=128,
                  gamma=0.99, init_w_actor=3e-3, init_w_critic=3e-3, critic_lr=1e-3,
-                 actor_lr=1e-4, actor_weight_decay=0., critic_weight_decay=0., **kwargs):
+                 actor_lr=1e-4, actor_weight_decay=0., critic_weight_decay=0., max_action=1
+    ):
 
-        self.actor = Actor(state_dim, action_dim, hidden_dim, init_w=init_w_actor).to(device)
+        self.actor = Actor(state_dim, action_dim, hidden_dim, max_action, init_w=init_w_actor).to(device)
         self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = optim.Adam(self.actor.parameters(),
                                           lr=actor_lr,
@@ -106,16 +104,27 @@ class DDPG:
         self.action_dim = action_dim
         self.replay_buffer = ReplayBuffer(state_dim, action_dim, buffer_size)
         self.tau = tau
-        self.noise = noise
+        self.expl_noise = expl_noise
         self.summary_writer = summary_writer
         self.batch_size = batch_size
         self.gamma = gamma
+        self.max_action = max_action
 
     def predict(self, state, with_noise=True):
         self.actor.eval()
         action = self.actor.get_action(state)
         if self.noise and with_noise:
             action = self.noise.get_action(action)
+        self.actor.train()
+        return action
+
+    def predict(self, state, with_noise=True):
+        self.actor.eval()
+        action = self.actor.get_action(state)
+        if self.expl_noise and with_noise:
+            action = (
+                      action + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
+            ).clip(-self.max_action, self.max_action)
         self.actor.train()
         return action
 

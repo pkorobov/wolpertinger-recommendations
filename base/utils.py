@@ -2,6 +2,11 @@ import numpy as np
 import torch
 
 
+def soft_update(target, source, tau):
+    for target_param, param in zip(target.parameters(), source.parameters()):
+        target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)
+
+
 class ReplayBuffer(object):
 	def __init__(self, state_dim, action_dim, max_size=int(1e6)):
 		self.max_size = max_size

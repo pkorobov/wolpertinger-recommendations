@@ -40,7 +40,8 @@ def _load_run(path):
     return data
 
 
-def plot_averaged_runs(logdir='logs', averaging=True):
+def plot_averaged_runs(logdir='logs', ylimits=[0, 20], averaging=True):
+
     runs = pd.DataFrame()
 
     agent_dirs = sorted([*filter(lambda x: os.path.isdir(logdir + '/' + x) and x[0] != '.', os.listdir(logdir))])
@@ -78,8 +79,8 @@ def plot_averaged_runs(logdir='logs', averaging=True):
         ax2.fill_between(means.index, means - stds, means + stds, alpha=0.5)
         ax2.legend(fontsize=8)
 
-    plt.setp(ax1, ylim=(-5, 30))
-    plt.setp(ax2, ylim=(-5, 30))
+    plt.setp(ax1, ylim=ylimits)
+    plt.setp(ax2, ylim=ylimits)
     fig1.savefig(logdir + '/averaged_agents.png')
     fig2.savefig(logdir + '/averaged_agents_combined.png')
 
@@ -119,6 +120,7 @@ def plot_2d_function(summary_writer, func, tag, step):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default='logs')
+    parser.add_argument('--limits', nargs='+', type=int, default=[0, 20])
     args = parser.parse_args()
-    plot_averaged_runs(args.path)
+    plot_averaged_runs(args.path, args.limits)
 

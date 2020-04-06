@@ -18,6 +18,8 @@ import logging
 from tqdm import tqdm
 import multiprocessing as mp
 from functools import partial
+from base.ddpg import DDPG
+from base.td3 import TD3
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--parameters', default='parameters.json')
@@ -25,8 +27,8 @@ args = parser.parse_args()
 c.init_config(args.parameters)
 
 
-RUNS = 5
-EPISODES_FOR_AVERAGE = 10
+RUNS = 2
+EPISODES_FOR_AVERAGE = 2
 MAX_TOTAL_STEPS = c.MAX_TOTAL_STEPS
 START_TIME = datetime.now().strftime('%y.%m.%d %H-%M')
 
@@ -48,10 +50,11 @@ def create_optimal_agent(sess, env, **kwargs):
     return OptimalAgent(env)
 
 
-def create_wolp_agent(sess, env, eval_mode, k_ratio=0.1, summary_writer=None, **kwargs):
-    return WolpertingerRecSim(env, action_space=env.action_space,
-                              k_ratio=k_ratio, summary_writer=summary_writer,
-                              eval_mode=eval_mode, **kwargs)
+def create_wolp_agent(sess, env, eval_mode, k_ratio=0.1, backend=DDPG, summary_writer=None, **kwargs):
+    if type(backend) == str:
+        backend = eval(backend)
+    return WolpertingerRecSim(env, k_ratio=k_ratio, summary_writer=summary_writer,
+                              eval_mode=eval_mode, backend=backend, **kwargs)
 
 
 def cleanup_dir(dir_path):
@@ -128,7 +131,9 @@ def main():
 
     k_ratios = [0.1]
 
-    agents = [("Optimal", create_optimal_agent), ("Random", create_random_agent)]
+    agents = []
+    # agents = [("Optimal", create_optimal_agent)]
+    # agents = [("Optimal", create_optimal_agent), ("Random", create_random_agent)]
 
     dim = c.EMBEDDINGS.shape[1]
     for k_ratio, (parameters, param_string) in itertools.product(k_ratios, zip(c.AGENT_PARAMETERS, c.AGENT_PARAM_STRINGS)):

@@ -28,7 +28,7 @@ def init_config(param_path='parameters.json'):
     AGENT_PARAMETERS = all_parameters['agent']
 
     def generate_param_strings(agent_params):
-        return [f"noise={params['noise_sigma']}, " \
+        return [f"noise={params['expl_noise']}, " \
                 f"clr={params['critic_lr']}, " \
                 f"alr={params['actor_lr']}," \
                 f"awd={params['actor_weight_decay']}, " \

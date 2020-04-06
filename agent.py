@@ -1,8 +1,8 @@
 from recsim.agent import AbstractEpisodicRecommenderAgent
 from base.wolpertinger import *
+from base.ddpg import DDPG
 from gym import spaces
 import config as c
-
 
 class OptimalAgent(AbstractEpisodicRecommenderAgent):
 
@@ -17,13 +17,14 @@ class OptimalAgent(AbstractEpisodicRecommenderAgent):
 
 class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
 
-    def __init__(self, env, state_dim, action_dim,
+    def __init__(self, env, state_dim, action_dim, backend=DDPG,
                  k_ratio=0.1, eval_mode=False, **kwargs):
         AbstractEpisodicRecommenderAgent.__init__(self, env.action_space)
 
         self._observation_space = env.observation_space
-        self.agent = Wolpertinger(state_dim, action_dim,
-                                  env, k_ratio=k_ratio, **kwargs)
+
+        self.agent = createWolpertinger(backend)(state_dim, action_dim,
+                                                 env, k_ratio=k_ratio, **kwargs)
         self.agent.t = 0
         self.current_episode = {}
         self.eval_mode = eval_mode
