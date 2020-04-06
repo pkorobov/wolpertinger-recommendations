@@ -29,20 +29,17 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
         self.eval_mode = eval_mode
 
     def begin_episode(self, observation=None):
-        state_num = np.argmax(self._extract_state(observation))
-        state = self.agent.embeddings[state_num]
+        state = self._extract_state(observation)
         return self._act(state)
 
     def step(self, reward, observation):
-        state_num = np.argmax(self._extract_state(observation))
-        state = self.agent.embeddings[state_num]
+        state = self._extract_state(observation)
         self._observe(state, reward, 0)
         self.agent.t += 1
         return self._act(state)
 
     def end_episode(self, reward, observation=None):
-        state_num = np.argmax(self._extract_state(observation))
-        state = self.agent.embeddings[state_num]
+        state = self._extract_state(observation)
         self._observe(state, reward, 1)
 
     def _act(self, state):
@@ -69,11 +66,10 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
 
         self.agent.episode = self.current_episode
         if not self.eval_mode:
-            self.agent.replay_buffer.push(**self.current_episode)
+            self.agent.replay_buffer.add(**self.current_episode)
             if self.agent.t >= self.agent.training_starts and len(self.agent.replay_buffer) >= self.agent.batch_size:
                 self.agent.update()
         self.current_episode = {}
 
     def _extract_state(self, observation):
-        user_space = self._observation_space.spaces['user']
-        return spaces.flatten(user_space, observation['user'])
+        return self.agent.embeddings[observation['user'][0]]

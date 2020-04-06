@@ -33,7 +33,7 @@ def init_config(param_path='parameters.json'):
                 f"alr={params['actor_lr']}," \
                 f"awd={params['actor_weight_decay']}, " \
                 f"cwd={params['critic_weight_decay']}, " \
-                f"tau={params['soft_tau']}"
+                f"tau={params['tau']}"
                 for params in agent_params]
 
     AGENT_PARAM_STRINGS = generate_param_strings(AGENT_PARAMETERS)
