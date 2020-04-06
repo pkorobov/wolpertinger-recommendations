@@ -26,6 +26,7 @@ c.init_config(args.parameters)
 
 
 RUNS = 5
+EPISODES_FOR_AVERAGE = 10
 MAX_TOTAL_STEPS = c.MAX_TOTAL_STEPS
 START_TIME = datetime.now().strftime('%y.%m.%d %H-%M')
 
@@ -80,21 +81,26 @@ def run_agent(env, create_function, agent_name, base_dir, seed, eval_mode=False)
     step_number = 0
     observation = env.reset()
     while step_number < MAX_TOTAL_STEPS:
-        episode_reward = 0
 
-        # episode
-        action = agent.begin_episode(observation)
-        while True:
-            observation, reward, done, info = env.step(action)
-            step_number += 1
-            episode_reward += reward
-            if done:
-                break
-            else:
-                action = agent.step(reward, observation)
-        agent.end_episode(reward, observation)
+        cum_reward = 0
+        for episode in range(EPISODES_FOR_AVERAGE):
+            episode_reward = 0
 
-        summary_writer.add_scalar('AverageEpisodeRewards', episode_reward, step_number)
+            # episode
+            action = agent.begin_episode(observation)
+            while True:
+                observation, reward, done, info = env.step(action)
+                step_number += 1
+                episode_reward += reward
+                if done:
+                    break
+                else:
+                    action = agent.step(reward, observation)
+            agent.end_episode(reward, observation)
+            cum_reward += episode_reward
+
+        summary_writer.add_scalar('AverageEpisodeRewards', cum_reward / EPISODES_FOR_AVERAGE, step_number)
+
     summary_writer.close()
     logging.info(f"RUN #{seed + 1} of {RUNS} ended")
 

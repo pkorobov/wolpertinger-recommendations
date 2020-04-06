@@ -103,7 +103,7 @@ for _, user_ratings in tqdm(df['ratings'].iteritems()):
             W[to_new_index[cur_rating.movie_id], to_new_index[next_rating.movie_id]] += binarize_rating(next_rating.rating)
             counts[to_new_index[cur_rating.movie_id], to_new_index[next_rating.movie_id]] += 1
 
-W_1 = (W + 1) / (counts + all_ratings_cnt / good_ratings_cnt)
+W_1 = (W + good_ratings_cnt) / (counts + all_ratings_cnt)
 with open("/home/p.korobov/data/netflix/matrix_env/W_matrix.pkl", "wb") as file:
     pickle.dump(W_1, file)
 
