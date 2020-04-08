@@ -28,12 +28,13 @@ def init_config(param_path='parameters.json'):
     AGENT_PARAMETERS = all_parameters['agent']
 
     def generate_param_strings(agent_params):
-        return [f"noise={params['expl_noise']}, " \
+        return [f"{params['backend']}, " \
                 f"clr={params['critic_lr']}, " \
                 f"alr={params['actor_lr']}," \
                 f"awd={params['actor_weight_decay']}, " \
                 f"cwd={params['critic_weight_decay']}, " \
-                f"tau={params['tau']}" if params['agent'] == 'Wolpertinger' else ''
+                f"tau={params['tau']}, " \
+                f"eps={params['eps']}" if params['agent'] == 'Wolpertinger' else ''
                 for params in agent_params]
 
     AGENT_PARAM_STRINGS = generate_param_strings(AGENT_PARAMETERS)

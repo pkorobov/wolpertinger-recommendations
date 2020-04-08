@@ -156,7 +156,7 @@ def main():
         me.clicked_reward
     )
 
-    base_dir = Path('logs') / c.ENV_PARAMETERS['type']
+    base_dir = Path(args.logdir) / c.ENV_PARAMETERS['type']
     if args.rmdir:
         cleanup_dir(base_dir)
 
@@ -164,7 +164,7 @@ def main():
         k = max(1, int(actions * k_ratio))
         return "Wolpertinger {}NN ({})".format(k, param_string)
 
-    k_ratios = [0.001]
+    k_ratios = [0.1]
 
     agents = []
     dim = c.EMBEDDINGS.shape[1]
