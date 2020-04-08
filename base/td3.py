@@ -105,7 +105,7 @@ class TD3(object):
 
         self.action_dim = action_dim
         self.max_action = max_action
-        self.total_it = 0
+        self.t = 0
 
     def predict(self, state, with_noise=True):
         self.actor.eval()
@@ -118,7 +118,6 @@ class TD3(object):
         return action
 
     def update(self):
-        self.total_it += 1
 
         # Sample replay buffer
         state, action, next_state, reward, not_done = self.replay_buffer.sample(self.batch_size)
@@ -150,7 +149,7 @@ class TD3(object):
         self.critic_optimizer.step()
 
         # Delayed policy updates
-        if self.total_it % self.policy_freq == 0:
+        if self.t % self.policy_freq == 0:
 
             # Compute actor loss
             actor_loss = -self.critic.Q1(state, self.actor(state)).mean()
@@ -160,19 +159,25 @@ class TD3(object):
             actor_loss.backward()
             self.actor_optimizer.step()
 
-            if self.summary_writer:
-
-                grad_actor = torch.cat([p.grad.flatten() for p in self.actor.parameters()])
-                grad_critic = torch.cat([p.grad.flatten() for p in self.critic.parameters()])
-
-                self.summary_writer.add_scalar('loss/Actor_loss', actor_loss, self.t)
-                self.summary_writer.add_scalar('loss/Critic_loss', critic_loss, self.t)
-                self.summary_writer.add_scalar('extra/Actor_gradient_norm', grad_actor.norm(), self.t)
-                self.summary_writer.add_scalar('extra/Critic_gradient_norm', grad_critic.norm(), self.t)
-
             # Update the frozen target models
             soft_update(self.critic_target, self.critic, self.tau)
             soft_update(self.actor_target, self.actor, self.tau)
+
+        if self.summary_writer:
+
+            grad_critic = torch.cat([p.grad.flatten() for p in self.critic.parameters()])
+            self.summary_writer.add_scalar('loss/Critic_loss', critic_loss, self.t)
+            self.summary_writer.add_scalar('extra/Critic_gradient_norm', grad_critic.norm(), self.t)
+
+            try:
+                grad_actor = torch.cat([p.grad.flatten() for p in self.actor.parameters()])
+                self.summary_writer.add_scalar('loss/Actor_loss', actor_loss, self.t)
+                self.summary_writer.add_scalar('extra/Actor_gradient_norm', grad_actor.norm(), self.t)
+            except (NameError, AttributeError) as e:
+                pass
+
+        self.t += 1
+
 
     def save(self, filename):
         torch.save(self.critic.state_dict(), filename + "_critic")

@@ -20,17 +20,7 @@ import multiprocessing as mp
 from functools import partial
 from base.ddpg import DDPG
 from base.td3 import TD3
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--parameters', default='parameters.json')
-args = parser.parse_args()
-c.init_config(args.parameters)
-
-
-RUNS = 2
-EPISODES_FOR_AVERAGE = 2
-MAX_TOTAL_STEPS = c.MAX_TOTAL_STEPS
-START_TIME = datetime.now().strftime('%y.%m.%d %H-%M')
+import gym
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 torch.backends.cudnn.deterministic = True
@@ -73,39 +63,71 @@ def fix_seed(seed):
     random.seed(seed)
 
 
-def run_agent(env, create_function, agent_name, base_dir, seed, eval_mode=False):
+def run_agent(env, create_function, agent_name, base_dir,
+              seed, max_total_steps, write_metrics_freq, eval_mode=False):
 
-    logging.info(f"RUN #{seed + 1} of {RUNS} starts...")
     summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{seed}/train")
     fix_seed(seed)
     c.init_w()
 
     agent = create_function(None, env, eval_mode=eval_mode, summary_writer=summary_writer)
     step_number = 0
+    episode_number = 0
+    cum_reward = 0
     observation = env.reset()
-    while step_number < MAX_TOTAL_STEPS:
 
-        cum_reward = 0
-        for episode in range(EPISODES_FOR_AVERAGE):
-            episode_reward = 0
+    while step_number < max_total_steps:
 
-            # episode
-            action = agent.begin_episode(observation)
-            while True:
-                observation, reward, done, info = env.step(action)
-                step_number += 1
-                episode_reward += reward
-                if done:
-                    break
-                else:
-                    action = agent.step(reward, observation)
-            agent.end_episode(reward, observation)
-            cum_reward += episode_reward
+        episode_reward = 0
+        action = agent.begin_episode(observation)
+        while True:
+            observation, reward, done, info = env.step(action)
+            step_number += 1
+            episode_reward += reward
+            if done:
+                break
+            else:
+                action = agent.step(reward, observation)
+        agent.end_episode(reward, observation)
+        episode_number += 1
+        cum_reward += episode_reward
 
-        summary_writer.add_scalar('AverageEpisodeRewards', cum_reward / EPISODES_FOR_AVERAGE, step_number)
+        if episode_number % write_metrics_freq == 0:
+            summary_writer.add_scalar('AverageEpisodeRewards', cum_reward / write_metrics_freq, step_number)
+            cum_reward = 0
 
     summary_writer.close()
-    logging.info(f"RUN #{seed + 1} of {RUNS} ended")
+
+# to make it like in TD3
+def run_agent_with_eval(env, create_function, agent_name, base_dir,
+              seed, max_total_steps, write_metrics_freq, eval_mode=False):
+
+    summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{seed}/train")
+    fix_seed(seed)
+    c.init_w()
+
+    agent = create_function(None, env, eval_mode=eval_mode, summary_writer=summary_writer)
+
+    observation = env.reset()
+    action = agent.begin_episode(observation)
+    cum_reward = 0
+
+    for step_number in range(max_total_steps):
+
+        observation, reward, done, info = env.step(action)
+        cum_reward += reward
+
+        if done:
+            agent.end_episode(reward, observation)
+            action = agent.begin_episode(observation)
+        else:
+            action = agent.step(reward, observation)
+
+        if step_number % write_metrics_freq == 0:
+            summary_writer.add_scalar('AverageEpisodeRewards', cum_reward / write_metrics_freq, step_number)
+            cum_reward = 0
+
+    summary_writer.close()
 
 
 def main():
@@ -113,6 +135,18 @@ def main():
     See results with to compare different agents
       tensorboard --logdir logs --samples_per_plugin "images=100"
     """
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--parameters', default='parameters.json')
+    parser.add_argument('--runs', type=int, default=5)
+    parser.add_argument('--total_steps', type=int, default=10**5)
+    parser.add_argument('--write_metrics_freq', type=int, default=1)
+    parser.add_argument('--logdir', default='logs')
+    parser.add_argument('--rmdir', type=bool, default=False)
+
+    args = parser.parse_args()
+    c.init_config(args.parameters)
+
     setup_logging()
 
     env = recsim_gym.RecSimGymEnv(
@@ -122,34 +156,45 @@ def main():
         me.clicked_reward
     )
 
-    base_dir = Path('logs') / START_TIME / c.ENV_PARAMETERS['type']
-    # base_dir = cleanup_dir(Path('logs') / c.ENV_PARAMETERS['type'])
+    base_dir = Path('logs') / c.ENV_PARAMETERS['type']
+    if args.rmdir:
+        cleanup_dir(base_dir)
 
     def wolpertinger_name(actions, k_ratio, param_string):
         k = max(1, int(actions * k_ratio))
         return "Wolpertinger {}NN ({})".format(k, param_string)
 
-    k_ratios = [0.1]
+    k_ratios = [0.001]
 
     agents = []
-    # agents = [("Optimal", create_optimal_agent)]
-    # agents = [("Optimal", create_optimal_agent), ("Random", create_random_agent)]
-
     dim = c.EMBEDDINGS.shape[1]
     for k_ratio, (parameters, param_string) in itertools.product(k_ratios, zip(c.AGENT_PARAMETERS, c.AGENT_PARAM_STRINGS)):
-        create_function = partial(create_wolp_agent, k_ratio=0.1, state_dim=dim, action_dim=dim,
-                                  embeddings=c.EMBEDDINGS, **parameters)
-        agents.append(
-                (wolpertinger_name(c.DOC_NUM, k_ratio, param_string),
-                 create_function)
-        )
+
+        agent = parameters.pop("agent")
+        if agent == 'Wolpertinger':
+            create_function = partial(create_wolp_agent, k_ratio=k_ratio, state_dim=dim, action_dim=dim,
+                                      embeddings=c.EMBEDDINGS, **parameters)
+            agents.append(
+                    (wolpertinger_name(c.DOC_NUM, k_ratio, param_string),
+                     create_function)
+            )
+
+        if agent == 'Random':
+            agents.append(("Random", create_random_agent))
+
+        if agent == 'Optimal':
+            agents.append(("Optimal", create_optimal_agent))
 
     for agent_number, (agent_name, create_function) in enumerate(agents):
         logging.info(f"Running agent #{agent_number + 1} of {len(agents)}...")
-        list(map(partial(run_agent, env, create_function, agent_name, base_dir), range(RUNS)))
+
+        for run in range(args.runs):
+            logging.info(f"RUN #{run + 1} of {args.runs}")
+            run_agent(env, create_function, agent_name, base_dir, run,
+                      args.total_steps, args.write_metrics_freq, eval_mode=False)
 
     logging.disable()
-    plot_averaged_runs(str(base_dir))
+    plot_averaged_runs(str(base_dir), ylimits=[0, 12])
 
 
 if __name__ == "__main__":

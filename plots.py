@@ -42,8 +42,6 @@ def _load_run(path):
 
 def plot_averaged_runs(logdir='logs', ylimits=[0, 20], averaging=True):
 
-    runs = pd.DataFrame()
-
     agent_dirs = sorted([*filter(lambda x: os.path.isdir(logdir + '/' + x) and x[0] != '.', os.listdir(logdir))])
     agent_dirs = sorted(agent_dirs, key=len)
     fig1, ax1 = plt.subplots(1, len(agent_dirs), figsize=(len(agent_dirs) * 8, 8))
@@ -52,6 +50,8 @@ def plot_averaged_runs(logdir='logs', ylimits=[0, 20], averaging=True):
     plt.xlabel('Iterations')
     plt.ylabel('Mean episode reward')
     for i, agent in enumerate(agent_dirs):
+
+        runs = pd.DataFrame()
         agent_path = logdir + '/' + agent
         if os.path.isdir(agent_path):
             runs_num = len(
