@@ -44,7 +44,8 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
         self._observe(state, reward, 1)
 
     def _act(self, state):
-        if np.random.rand() < self.agent.eps:
+        if np.random.rand() < self.agent.eps or \
+           self.agent.t < self.agent.training_starts:
             index = np.random.randint(c.DOC_NUM)
             action = self.agent.embeddings[index]
         else:

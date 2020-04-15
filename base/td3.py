@@ -176,9 +176,6 @@ class TD3(object):
             except (NameError, AttributeError) as e:
                 pass
 
-        self.t += 1
-
-
     def save(self, filename):
         torch.save(self.critic.state_dict(), filename + "_critic")
         torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")

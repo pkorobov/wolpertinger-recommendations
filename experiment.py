@@ -93,37 +93,7 @@ def run_agent(env, create_function, agent_name, base_dir,
         cum_reward += episode_reward
 
         if episode_number % write_metrics_freq == 0:
-            summary_writer.add_scalar('AverageEpisodeRewards', cum_reward / write_metrics_freq, step_number)
-            cum_reward = 0
-
-    summary_writer.close()
-
-# to make it like in TD3
-def run_agent_with_eval(env, create_function, agent_name, base_dir,
-              seed, max_total_steps, write_metrics_freq, eval_mode=False):
-
-    summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{seed}/train")
-    fix_seed(seed)
-    c.init_w()
-
-    agent = create_function(None, env, eval_mode=eval_mode, summary_writer=summary_writer)
-
-    observation = env.reset()
-    action = agent.begin_episode(observation)
-    cum_reward = 0
-
-    for step_number in range(max_total_steps):
-
-        observation, reward, done, info = env.step(action)
-        cum_reward += reward
-
-        if done:
-            agent.end_episode(reward, observation)
-            action = agent.begin_episode(observation)
-        else:
-            action = agent.step(reward, observation)
-
-        if step_number % write_metrics_freq == 0:
+            print(step_number, cum_reward / write_metrics_freq)
             summary_writer.add_scalar('AverageEpisodeRewards', cum_reward / write_metrics_freq, step_number)
             cum_reward = 0
 

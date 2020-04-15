@@ -6,7 +6,7 @@ from gym.core import Env
 import plots
 import numpy as np
 import faiss
-
+import torch
 
 def createWolpertinger(backend=DDPG):
     class Wolpertinger(backend):
@@ -25,7 +25,13 @@ def createWolpertinger(backend=DDPG):
 
             n, d = embeddings.shape
             self.embeddings = embeddings
+
             self.index = faiss.IndexFlatL2(d)
+
+            if torch.cuda.is_available():
+                res = faiss.StandardGpuResources()
+                self.index = faiss.index_cpu_to_gpu(res, 0, self.index)
+
             self.index.add(embeddings.astype(np.float32))
             self.k = max(1, int(n * k_ratio))
 
@@ -41,4 +47,5 @@ def createWolpertinger(backend=DDPG):
             max_index = np.argmax(q_values)  # find the index of the pair with the maximum value
             action, index = actions[max_index], I[0][max_index]
             return action, index
+
     return Wolpertinger

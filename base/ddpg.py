@@ -109,6 +109,7 @@ class DDPG:
         self.batch_size = batch_size
         self.gamma = gamma
         self.max_action = max_action
+        self.t = 0
 
     def predict(self, state, with_noise=True):
         self.actor.eval()
