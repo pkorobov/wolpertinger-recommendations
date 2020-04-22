@@ -21,11 +21,11 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
                  k_ratio=0.1, eval_mode=False, **kwargs):
         AbstractEpisodicRecommenderAgent.__init__(self, env.action_space)
 
-        self._observation_space = env.observation_space
+        self.observation_space = env.observation_space
 
-        self.agent = createWolpertinger(backend)(state_dim, action_dim,
+        self._agent = createWolpertinger(backend)(state_dim, action_dim,
                                                  env, k_ratio=k_ratio, **kwargs)
-        self.agent.t = 0
+        self._agent.t = 0
         self.current_episode = {}
         self.eval_mode = eval_mode
 
@@ -36,7 +36,7 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
     def step(self, reward, observation):
         state = self._extract_state(observation)
         self._observe(state, reward, 0)
-        self.agent.t += 1
+        self._agent.t += 1
         return self._act(state)
 
     def end_episode(self, reward, observation=None):
@@ -44,12 +44,12 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
         self._observe(state, reward, 1)
 
     def _act(self, state):
-        if np.random.rand() < self.agent.eps or \
-           self.agent.t < self.agent.training_starts:
+        if np.random.rand() < self._agent.eps or \
+           self._agent.t < self._agent.training_starts:
             index = np.random.randint(c.DOC_NUM)
-            action = self.agent.embeddings[index]
+            action = self._agent.embeddings[index]
         else:
-            action, index = self.agent.predict(state)
+            action, index = self._agent.predict(state)
         self.current_episode = {
             "state": state,
             "action": action,
@@ -66,12 +66,12 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
             "done": done
         })
 
-        self.agent.episode = self.current_episode
+        self._agent.episode = self.current_episode
         if not self.eval_mode:
-            self.agent.replay_buffer.add(**self.current_episode)
-            if self.agent.t >= self.agent.training_starts and len(self.agent.replay_buffer) >= self.agent.batch_size:
-                self.agent.update()
+            self._agent.replay_buffer.add(**self.current_episode)
+            if self._agent.t >= self._agent.training_starts and len(self._agent.replay_buffer) >= self._agent.batch_size:
+                self._agent.update()
         self.current_episode = {}
 
     def _extract_state(self, observation):
-        return self.agent.embeddings[observation['user'][0]]
+        return self._agent.embeddings[observation['user'][0]]

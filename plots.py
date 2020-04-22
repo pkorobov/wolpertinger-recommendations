@@ -10,6 +10,9 @@ import seaborn as sns
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
+import plotly.graph_objects as go
+import plotly
+import config as c
 
 # mpl.rcParams['axes.prop_cycle'] = mpl.cycler(color=['orange', 'green', 'red', 'blue', 'gray'])
 mpl.rcParams['axes.prop_cycle'] = mpl.cycler(
@@ -20,10 +23,40 @@ plt.rcParams['axes.grid'] = True
 
 
 def heatmap(summary_writer, matrix, tag, step):
-    fig, ax = plt.subplots(figsize=matrix.shape)
+    fig, ax = plt.subplots(figsize=[30, 30])
     sns.heatmap(matrix, annot=True)
     summary_writer.add_figure(tag, fig, global_step=step)
     return fig
+
+
+def plotly_heatmap(fig, filename):
+    # Create and add slider
+    steps = []
+    for i in range(len(fig.data)):
+        step = dict(
+            method="restyle",
+            args=["visible", [False] * len(fig.data)],
+        )
+        step["args"][1][i] = True  # Toggle i'th trace to "visible"
+        steps.append(step)
+
+    sliders = [dict(
+        active=0,
+        currentvalue={"prefix": "Step: "},
+        steps=steps
+    )]
+
+    fig.update_layout(
+        sliders=sliders
+    )
+
+    fig.update_layout(
+        autosize=False,
+        width=1000,
+        height=1000,
+    )
+    fig.write_html(f"{filename}")
+    # plotly.offline.plot(fig, filename=f'{filename}')
 
 
 def _load_run(path):
@@ -40,7 +73,7 @@ def _load_run(path):
     return data
 
 
-def plot_averaged_runs(logdir='logs', ylimits=[0, 20], averaging=True):
+def plot_averaged_runs(logdir='logs', ylimits=[0, 20], smoothing=True):
 
     agent_dirs = sorted([*filter(lambda x: os.path.isdir(logdir + '/' + x) and x[0] != '.', os.listdir(logdir))])
     agent_dirs = sorted(agent_dirs, key=len)
@@ -62,7 +95,7 @@ def plot_averaged_runs(logdir='logs', ylimits=[0, 20], averaging=True):
         for j in tqdm(range(runs_num)):
             cur_run = pd.Series(_load_run(f"{agent_path}/run_{j}/train")['AverageEpisodeRewards'][1])
             runs[f'run_{j}'] = cur_run
-        if averaging:
+        if smoothing:
             runs = runs.rolling(window=30).mean()
         means = runs.mean(axis=1)
         stds = runs.std(axis=1)
@@ -121,6 +154,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--path', default='logs')
     parser.add_argument('--limits', nargs='+', type=int, default=[0, 20])
+    parser.add_argument('--smoothing', type=bool, default=True)
     args = parser.parse_args()
-    plot_averaged_runs(args.path, args.limits)
+    plot_averaged_runs(args.path, args.limits, args.smoothing)
 

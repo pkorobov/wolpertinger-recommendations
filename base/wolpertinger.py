@@ -7,6 +7,7 @@ import plots
 import numpy as np
 import faiss
 import torch
+import numpy as np
 
 def createWolpertinger(backend=DDPG):
     class Wolpertinger(backend):
@@ -47,5 +48,16 @@ def createWolpertinger(backend=DDPG):
             max_index = np.argmax(q_values)  # find the index of the pair with the maximum value
             action, index = actions[max_index], I[0][max_index]
             return action, index
+
+        def proto_action(self, state, with_noise=False):
+            return super().predict(state, with_noise)
+
+        def compute_q_values(self, state_num=0, target=False):
+            s = np.tile(self.embeddings[state_num], (self.embeddings.shape[0], 1))
+            a = self.embeddings
+
+            if not target:
+                return self.critic.get_q_values(s, a)
+            return self.critic_target.get_q_values(s, a)
 
     return Wolpertinger
