@@ -14,6 +14,7 @@ REINIT_STEPS = None
 AGENT_PARAM_STRINGS = None
 EMBEDDINGS = None
 PATH = Path("/Users" if platform.system() == 'Darwin' else "/home") / "p.korobov/data/netflix/matrix_env"
+OPTIMAL_ACTIONS = None
 
 
 def init_config(param_path='parameters.json'):
@@ -49,11 +50,12 @@ def init_config(param_path='parameters.json'):
 
 
 def init_w():
-    global W, EMBEDDINGS
+    global W, EMBEDDINGS, OPTIMAL_ACTIONS
     if ENV_PARAMETERS['type'] == 'movies':
-        with open(PATH / "W_matrix.pkl", "rb") as pickle_in:
+        with open(PATH / "W_matrix_contrasted_100.pkl", "rb") as pickle_in:
             W = pickle.load(pickle_in)
             W = W[:DOC_NUM, :DOC_NUM]
+            OPTIMAL_ACTIONS = W.argmax(axis=0)
         with open(PATH / "embeddings_dict.pkl", "rb") as pickle_in:
             emb_dict = pickle.load(pickle_in)
             EMBEDDINGS = np.array([*map(lambda ind: emb_dict[ind], np.arange(len(emb_dict)))])

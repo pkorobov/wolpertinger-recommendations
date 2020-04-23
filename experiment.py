@@ -24,6 +24,7 @@ import gym
 import plots
 import plotly.graph_objects as go
 import plotly
+import pandas as pd
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 torch.backends.cudnn.deterministic = True
@@ -69,6 +70,8 @@ def fix_seed(seed):
 def run_agent(env, create_function, agent_name, base_dir,
               seed, max_total_steps, times_to_evaluate, eval_mode=False):
 
+    log_df = pd.DataFrame(columns=['episode', 's', 'a', 'opt a', 'reward'])
+
     eval_freq = max_total_steps // times_to_evaluate
     eval_q_table_freq = max_total_steps // 10
 
@@ -86,6 +89,7 @@ def run_agent(env, create_function, agent_name, base_dir,
 
     step_number = 0
     cum_reward = 0
+    episode_number = 0
     episodes_to_avg = 0
     observation = env.reset()
 
@@ -103,6 +107,14 @@ def run_agent(env, create_function, agent_name, base_dir,
                 break
             else:
                 action = agent.step(reward, observation)
+
+            s = observation['user'].item()
+            a = np.array(action).item()
+            a_opt = c.OPTIMAL_ACTIONS[s]
+
+            log_df.loc[step_number] = [episode_number, s, a, a_opt, reward]
+        episode_number += 1
+
         agent.end_episode(reward, observation)
         cum_reward += episode_reward
         episodes_to_avg += 1
@@ -127,7 +139,9 @@ def run_agent(env, create_function, agent_name, base_dir,
         heatmaps["W"].add_trace(go.Heatmap(z=c.W))
         for key, fig in heatmaps.items():
             plots.plotly_heatmap(fig, base_dir / agent_name / f"run_{seed}/{key}.html")
+        agent._agent.save(str(base_dir / agent_name / f"run_{seed}/parameters"))
 
+    log_df.to_csv(base_dir / agent_name / f"run_{seed}/steps.csv")
     summary_writer.close()
 
 

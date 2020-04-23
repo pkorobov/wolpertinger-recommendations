@@ -12,7 +12,7 @@ class OptimalAgent(AbstractEpisodicRecommenderAgent):
 
     def step(self, reward, observation):
         doc_id = observation['user'][0]
-        return [c.W[doc_id, :].argmax()]
+        return np.expand_dims(c.W[doc_id, :].argmax(), 0)
 
 
 class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
@@ -54,7 +54,7 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
             "state": state,
             "action": action,
         }
-        return [index]
+        return np.array([index])
 
     def _observe(self, next_state, reward, done):
         if not self.current_episode:
