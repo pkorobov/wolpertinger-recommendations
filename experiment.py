@@ -68,7 +68,8 @@ def fix_seed(seed):
 
 
 def run_agent(env, create_function, agent_name, base_dir,
-              seed, max_total_steps, times_to_evaluate, eval_mode=False):
+              seed, max_total_steps, times_to_evaluate,
+              eval_mode=False, display=False):
 
     log_df = pd.DataFrame(columns=['episode', 's', 'a', 'opt a', 'reward'])
 
@@ -130,7 +131,8 @@ def run_agent(env, create_function, agent_name, base_dir,
             heatmaps["policy"].add_trace(go.Heatmap(z=actions))
 
         if step_number // eval_freq != (step_number - episode_len) // eval_freq:
-            print(step_number, cum_reward / episodes_to_avg)
+            if display:
+                print(step_number, cum_reward / episodes_to_avg)
             summary_writer.add_scalar('AverageEpisodeRewards', cum_reward / episodes_to_avg, step_number)
             episodes_to_avg = 0
             cum_reward = 0
@@ -158,6 +160,7 @@ def main():
     parser.add_argument('--times_to_evaluate', type=int, default=1000)
     parser.add_argument('--logdir', default='logs')
     parser.add_argument('--rmdir', type=bool, default=False)
+    parser.add_argument('--display', type=bool, default=False)
 
     args = parser.parse_args()
     c.init_config(args.parameters)
@@ -206,7 +209,8 @@ def main():
         for run in range(args.runs):
             logging.info(f"RUN #{run + 1} of {args.runs} ({agent_name})")
             run_agent(env, create_function, agent_name, base_dir, run,
-                      args.total_steps, args.times_to_evaluate, eval_mode=False)
+                      args.total_steps, args.times_to_evaluate,
+                      eval_mode=False, display=args.display)
 
     logging.disable()
     plot_averaged_runs(str(base_dir), ylimits=[0, 12], smoothing=False)
