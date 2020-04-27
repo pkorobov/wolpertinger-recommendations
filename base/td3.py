@@ -75,6 +75,7 @@ class Critic(nn.Module):
         q_value = q_value.detach().cpu().numpy()
         return q_value
 
+
 class TD3(object):
     def __init__(
             self, state_dim, action_dim, summary_writer=None, max_action=1, gamma=0.99, batch_size=128,

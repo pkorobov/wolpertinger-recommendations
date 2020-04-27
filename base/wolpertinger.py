@@ -1,4 +1,4 @@
-from base.ddpg import DDPG
+from .ddpg import DDPG
 import matrix_env
 import config
 import gym
@@ -9,8 +9,9 @@ import faiss
 import torch
 import numpy as np
 
-def createWolpertinger(backend=DDPG):
-    class Wolpertinger(backend):
+
+def create_wolpertinger(backbone=DDPG):
+    class Wolpertinger(backbone):
         def __init__(self, state_dim, action_dim, env, batch_size=128, gamma=0.99,
                      min_value=-np.inf, max_value=np.inf, k_ratio=0.1, training_starts=100,
                      eps=1e-2, embeddings=None, **kwargs):

@@ -17,13 +17,13 @@ class OptimalAgent(AbstractEpisodicRecommenderAgent):
 
 class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
 
-    def __init__(self, env, state_dim, action_dim, backend=DDPG,
+    def __init__(self, env, state_dim, action_dim, backbone=DDPG,
                  k_ratio=0.1, eval_mode=False, **kwargs):
         AbstractEpisodicRecommenderAgent.__init__(self, env.action_space)
 
         self.observation_space = env.observation_space
 
-        self._agent = createWolpertinger(backend)(state_dim, action_dim,
+        self._agent = create_wolpertinger(backbone)(state_dim, action_dim,
                                                  env, k_ratio=k_ratio, **kwargs)
         self._agent.t = 0
         self.current_episode = {}

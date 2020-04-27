@@ -20,6 +20,7 @@ import multiprocessing as mp
 from functools import partial
 from base.ddpg import DDPG
 from base.td3 import TD3
+from base.sac import SAC
 import gym
 import plots
 import plotly.graph_objects as go
@@ -44,11 +45,11 @@ def create_optimal_agent(sess, env, **kwargs):
     return OptimalAgent(env)
 
 
-def create_wolp_agent(sess, env, eval_mode, k_ratio=0.1, backend=DDPG, summary_writer=None, **kwargs):
-    if type(backend) == str:
-        backend = eval(backend)
+def create_wolp_agent(sess, env, eval_mode, k_ratio=0.1, backbone=DDPG, summary_writer=None, **kwargs):
+    if type(backbone) == str:
+        backbone = eval(backbone)
     return WolpertingerRecSim(env, k_ratio=k_ratio, summary_writer=summary_writer,
-                              eval_mode=eval_mode, backend=backend, **kwargs)
+                              eval_mode=eval_mode, backbone=backbone, **kwargs)
 
 
 def cleanup_dir(dir_path):

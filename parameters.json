@@ -10,23 +10,18 @@
 
         {
           "agent": "Wolpertinger",
-          "backend": "TD3",
-          "expl_noise": 0.1,
-          "critic_lr": 1e-3,
-          "actor_lr": 1e-4,
-          "tau": 1e-4,
+          "backbone": "SAC",
+          "lr": 3e-4,
+          "tau": 1e-3,
           "hidden_dim": 256,
           "batch_size": 128,
           "buffer_size": 50000,
-          "gamma": 0.8,
-          "actor_weight_decay": 1e-4,
-          "critic_weight_decay": 1e-3,
-          "eps": 1e-2
+          "gamma": 0.8
         },
 
         {
           "agent": "Wolpertinger",
-          "backend": "DDPG",
+          "backbone": "TD3",
           "expl_noise": 0.1,
           "critic_lr": 1e-3,
           "actor_lr": 1e-4,

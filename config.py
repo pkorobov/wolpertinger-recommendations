@@ -29,14 +29,16 @@ def init_config(param_path='parameters.json'):
     AGENT_PARAMETERS = all_parameters['agent']
 
     def generate_param_strings(agent_params):
-        return [f"{params['backend']}, " \
-                f"clr={params['critic_lr']}, " \
-                f"alr={params['actor_lr']}," \
-                f"awd={params['actor_weight_decay']}, " \
-                f"cwd={params['critic_weight_decay']}, " \
-                f"tau={params['tau']}, " \
-                f"eps={params['eps']}" if params['agent'] == 'Wolpertinger' else ''
-                for params in agent_params]
+        params_to_display = ['backbone', 'lr', 'critic_lr', 'actor_lr', 'actor_weight_decay'
+                             'critic_weight_decay', 'critic_weight_decay', 'eps']
+
+        param_string = [""] * len(agent_params)
+        for i, params_dict in enumerate(agent_params):
+            for parameter_name in params_to_display:
+                if parameter_name in params_dict:
+                    param_string[i] += f"{parameter_name}={params_dict[parameter_name]}, "
+            param_string[i] = param_string[i][:-2]
+        return param_string
 
     AGENT_PARAM_STRINGS = generate_param_strings(AGENT_PARAMETERS)
 
