@@ -114,14 +114,6 @@ class DDPG:
     def predict(self, state, with_noise=True):
         self.actor.eval()
         action = self.actor.get_action(state)
-        if self.noise and with_noise:
-            action = self.noise.get_action(action)
-        self.actor.train()
-        return action
-
-    def predict(self, state, with_noise=True):
-        self.actor.eval()
-        action = self.actor.get_action(state)
         if self.expl_noise and with_noise:
             action = (
                       action + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
