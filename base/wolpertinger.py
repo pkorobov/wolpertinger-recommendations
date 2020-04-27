@@ -48,7 +48,7 @@ def create_wolpertinger(backbone=DDPG):
             q_values = self.critic.get_q_values(states, actions)
             max_index = np.argmax(q_values)  # find the index of the pair with the maximum value
             action, index = actions[max_index], I[0][max_index]
-            return action, index
+            return proto_action, index
 
         def proto_action(self, state, with_noise=False):
             return super().predict(state, with_noise)
