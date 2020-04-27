@@ -183,14 +183,16 @@ def main():
         k = max(1, int(actions * k_ratio))
         return "Wolpertinger {}NN ({})".format(k, param_string)
 
-    k_ratios = [0.1]
 
     agents = []
     dim = c.EMBEDDINGS.shape[1]
-    for k_ratio, (parameters, param_string) in itertools.product(k_ratios, zip(c.AGENT_PARAMETERS, c.AGENT_PARAM_STRINGS)):
+    for parameters, param_string in zip(c.AGENT_PARAMETERS, c.AGENT_PARAM_STRINGS):
 
         agent = parameters.pop("agent")
         if agent == 'Wolpertinger':
+            k_ratio = 0.0
+            if "k_ratio" in parameters:
+                k_ratio = parameters.pop("k_ratio")
             create_function = partial(create_wolp_agent, k_ratio=k_ratio, state_dim=dim, action_dim=dim,
                                       embeddings=c.EMBEDDINGS, **parameters)
             agents.append(
