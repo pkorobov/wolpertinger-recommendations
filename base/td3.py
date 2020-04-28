@@ -49,7 +49,7 @@ class Critic(nn.Module):
         self.l6 = nn.Linear(256, 1)
 
     def forward(self, state, action):
-        sa = torch.cat([state, action], 1)
+        sa = torch.cat([state, action], -1)
 
         q1 = F.relu(self.l1(sa))
         q1 = F.relu(self.l2(q1))
@@ -61,7 +61,7 @@ class Critic(nn.Module):
         return q1, q2
 
     def Q1(self, state, action):
-        sa = torch.cat([state, action], 1)
+        sa = torch.cat([state, action], -1)
 
         q1 = F.relu(self.l1(sa))
         q1 = F.relu(self.l2(q1))
@@ -118,23 +118,20 @@ class TD3(object):
         self.actor.train()
         return action
 
-    def update(self):
+    def target_action(self, next_state):
+        # Select action according to policy and add clipped noise
+        next_action = self.actor_target(next_state)
+        noise = (torch.randn_like(next_action) * self.policy_noise).clamp(-self.noise_clip, self.noise_clip)
+        next_action = (next_action + noise).clamp(-self.max_action, self.max_action)
+        return next_action
 
+    def update(self):
         # Sample replay buffer
         state, action, next_state, reward, not_done = self.replay_buffer.sample(self.batch_size)
 
         with torch.no_grad():
-            # Select action according to policy and add clipped noise
-            noise = (
-                    torch.randn_like(action) * self.policy_noise
-            ).clamp(-self.noise_clip, self.noise_clip)
-
-            next_action = (
-                    self.actor_target(next_state) + noise
-            ).clamp(-self.max_action, self.max_action)
-
             # Compute the target Q value
-            target_Q1, target_Q2 = self.critic_target(next_state, next_action)
+            target_Q1, target_Q2 = self.critic_target(next_state, self.target_action(next_state))
             target_Q = torch.min(target_Q1, target_Q2)
             target_Q = reward + not_done * self.gamma * target_Q
 

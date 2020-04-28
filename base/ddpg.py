@@ -69,7 +69,7 @@ class Critic(nn.Module):
         nn.init.zeros_(self.head.bias)
 
     def forward(self, state, action):
-        x = torch.cat([state, action], 1)
+        x = torch.cat([state, action], -1)
         x = self.net(x)
         x = self.head(x)
         return x
@@ -111,6 +111,9 @@ class DDPG:
         self.max_action = max_action
         self.t = 0
 
+    def target_action(self, next_state):
+        return self.actor_target(next_state)
+
     def predict(self, state, with_noise=True):
         self.actor.eval()
         action = self.actor.get_action(state)
@@ -127,7 +130,7 @@ class DDPG:
         state, action, next_state, reward, done = self.replay_buffer.sample(self.batch_size)
 
         current_q = self.critic(state, action)
-        target_q = self.critic_target(next_state, self.actor_target(next_state))
+        target_q = self.critic_target(next_state, self.target_action(next_state))
         target_q = reward + ((1.0 - done) * self.gamma * target_q).detach()
         critic_loss = F.mse_loss(current_q, target_q)
 

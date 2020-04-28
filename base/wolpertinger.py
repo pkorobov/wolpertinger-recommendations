@@ -1,4 +1,6 @@
 from .ddpg import DDPG
+from .sac import SAC
+from .td3 import TD3
 import matrix_env
 import config
 import gym
@@ -36,6 +38,7 @@ def create_wolpertinger(backbone=DDPG):
 
             self.index.add(embeddings.astype(np.float32))
             self.k = max(1, int(n * k_ratio))
+            self.backbone = backbone
 
         def predict(self, state):
 
@@ -61,4 +64,36 @@ def create_wolpertinger(backbone=DDPG):
                 return self.critic.get_q_values(s, a)
             return self.critic_target.get_q_values(s, a)
 
+        def target_action(self, next_state):
+            if self.backbone == SAC:
+                next_action, next_state_log_pi, _ = super().target_action(next_state)
+            else:
+                next_action = super().target_action(next_state)
+
+            I = torch.from_numpy(self.index.search(next_action.detach().numpy(), self.k)[1])
+            proto_action_neighbours = self.embeddings[I]
+            proto_action_neighbours = torch.from_numpy(proto_action_neighbours)
+            next_state_tiled = next_state.unsqueeze(1).repeat(1, self.k, 1)
+
+            if self.backbone == TD3:
+                q_values = self.critic_target.Q1(next_state_tiled, proto_action_neighbours).squeeze()
+                next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1)])
+                noise = (
+                        torch.randn_like(next_action) * self.policy_noise
+                ).clamp(-self.noise_clip, self.noise_clip)
+                next_action = (next_action + noise).clamp(-self.max_action, self.max_action)
+
+            if self.backbone == DDPG:
+                q_values = self.critic_target(next_state_tiled, proto_action_neighbours).squeeze()
+                next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1)])
+
+            if self.backbone == SAC:
+                q_values = torch.min(*self.critic_target(next_state_tiled, proto_action_neighbours)).squeeze()
+                next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1)])
+                return next_action, next_state_log_pi, _
+            return next_action
+
+        def print_base(self):
+            for base in self.__class__.__bases__:
+                print(base.__name__)
     return Wolpertinger
