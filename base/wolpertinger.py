@@ -11,17 +11,18 @@ import faiss
 import torch
 import numpy as np
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def create_wolpertinger(backbone=DDPG):
     class Wolpertinger(backbone):
         def __init__(self, state_dim, action_dim, env, batch_size=128, gamma=0.99,
-                     min_value=-np.inf, max_value=np.inf, k_ratio=0.1, training_starts=100,
-                     eps=1e-2, embeddings=None, **kwargs):
+                     k_ratio=0.1, training_starts=100, eps=1e-2, embeddings=None, **kwargs):
 
             super(Wolpertinger, self).__init__(state_dim, action_dim,
                                                batch_size=batch_size, gamma=gamma,
                                                **kwargs)
-            self.k = max(1, int(action_dim * k_ratio))
+
             self.training_starts = training_starts
             self.eps = eps
             self.episode = None
@@ -45,7 +46,7 @@ def create_wolpertinger(backbone=DDPG):
             proto_action = super().predict(state)
             proto_action = proto_action.clip(-1, 1)
 
-            _, I = self.index.search(proto_action[np.newaxis, :].astype(np.float32), self.k)
+            D, I = self.index.search(proto_action[np.newaxis, :].astype(np.float32), self.k)
             actions = self.embeddings[I[0]]
             states = np.tile(state, [len(actions), 1])  # make all the state-action pairs for the critic
             q_values = self.critic.get_q_values(states, actions)
@@ -69,15 +70,14 @@ def create_wolpertinger(backbone=DDPG):
                 next_action, next_state_log_pi, _ = super().target_action(next_state)
             else:
                 next_action = super().target_action(next_state)
-
-            I = torch.from_numpy(self.index.search(next_action.detach().numpy(), self.k)[1])
+            I = self.index.search(next_action.cpu().detach().numpy(), self.k)[1]
             proto_action_neighbours = self.embeddings[I]
-            proto_action_neighbours = torch.from_numpy(proto_action_neighbours)
+            proto_action_neighbours = torch.from_numpy(proto_action_neighbours).to(device)
             next_state_tiled = next_state.unsqueeze(1).repeat(1, self.k, 1)
 
             if self.backbone == TD3:
                 q_values = self.critic_target.Q1(next_state_tiled, proto_action_neighbours).squeeze()
-                next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1)])
+                next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1).cpu().detach()]).to(device)
                 noise = (
                         torch.randn_like(next_action) * self.policy_noise
                 ).clamp(-self.noise_clip, self.noise_clip)
@@ -85,7 +85,7 @@ def create_wolpertinger(backbone=DDPG):
 
             if self.backbone == DDPG:
                 q_values = self.critic_target(next_state_tiled, proto_action_neighbours).squeeze()
-                next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1)])
+                next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1).cpu().detach()]).to(device)
 
             if self.backbone == SAC:
                 q_values = torch.min(*self.critic_target(next_state_tiled, proto_action_neighbours)).squeeze()

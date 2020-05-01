@@ -72,10 +72,10 @@ def run_agent(env, create_function, agent_name, base_dir,
               seed, max_total_steps, times_to_evaluate,
               eval_mode=False, display=False):
 
-    log_df = pd.DataFrame(columns=['episode', 's', 'a', 'opt a', 'reward'])
+    log_df = pd.DataFrame(columns=['episode', 's', 'a', 'opt a', 'a_proba', 'opt_proba', 'reward'])
 
-    eval_freq = max_total_steps // times_to_evaluate
-    eval_q_table_freq = max_total_steps // 10
+    eval_freq = max(max_total_steps // times_to_evaluate, 1)
+    eval_q_table_freq = max(max_total_steps // 10, 1)
 
     summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{seed}/train")
     fix_seed(seed)
@@ -113,8 +113,9 @@ def run_agent(env, create_function, agent_name, base_dir,
             s = observation['user'].item()
             a = np.array(action).item()
             a_opt = c.OPTIMAL_ACTIONS[s]
-
-            log_df.loc[step_number] = [episode_number, s, a, a_opt, reward]
+            a_proba = c.W[s, a].round(3)
+            opt_proba = c.OPTIMAL_PROBAS[s].round(3)
+            log_df.loc[step_number] = [episode_number, s, a, a_opt, a_proba, opt_proba, reward]
         episode_number += 1
 
         agent.end_episode(reward, observation)
@@ -130,6 +131,8 @@ def run_agent(env, create_function, agent_name, base_dir,
             heatmaps["q_values"].add_trace(go.Heatmap(z=q_values))
             heatmaps["q_values_target"].add_trace(go.Heatmap(z=q_values_target))
             heatmaps["policy"].add_trace(go.Heatmap(z=actions))
+            agent._agent.save(str(base_dir / agent_name / f"run_{seed}/parameters_{step_number // eval_q_table_freq}"))
+            log_df.to_csv(base_dir / agent_name / f"run_{seed}/steps.csv")
 
         if step_number // eval_freq != (step_number - episode_len) // eval_freq:
             if display:
@@ -194,6 +197,7 @@ def main():
             if "k_ratio" in parameters:
                 k_ratio = parameters.pop("k_ratio")
             create_function = partial(create_wolp_agent, k_ratio=k_ratio, state_dim=dim, action_dim=dim,
+                                      max_action=c.MAX_ACTION, min_action=c.MIN_ACTION,
                                       embeddings=c.EMBEDDINGS, **parameters)
             agents.append(
                     (wolpertinger_name(c.DOC_NUM, k_ratio, param_string),

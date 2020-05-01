@@ -13,19 +13,21 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_dim, max_action=1):
+    def __init__(self, state_dim, action_dim, hidden_dim, max_action=1, min_action=-1):
         super(Actor, self).__init__()
 
         self.l1 = nn.Linear(state_dim, hidden_dim)
         self.l2 = nn.Linear(hidden_dim, hidden_dim)
         self.l3 = nn.Linear(hidden_dim, action_dim)
 
-        self.max_action = max_action
+        self.max_action = torch.tensor(max_action, dtype=torch.float32, device=device).detach()
+        self.min_action = torch.tensor(min_action, dtype=torch.float32, device=device).detach()
 
     def forward(self, state):
         a = F.relu(self.l1(state))
         a = F.relu(self.l2(a))
-        return self.max_action * torch.tanh(self.l3(a))
+        a = torch.tanh(self.l3(a))
+        return a * (self.max_action - self.min_action) / 2 + (self.max_action + self.min_action) / 2
 
     def get_action(self, state):
         state = torch.tensor(state, dtype=torch.float32).unsqueeze(0).to(device)
@@ -78,7 +80,7 @@ class Critic(nn.Module):
 
 class TD3(object):
     def __init__(
-            self, state_dim, action_dim, summary_writer=None, max_action=1, gamma=0.99, batch_size=128,
+            self, state_dim, action_dim, summary_writer=None, max_action=1, min_action=-1, gamma=0.99, batch_size=128,
             tau=0.005, policy_noise=0.2, expl_noise=0.1, noise_clip=0.5, policy_freq=2, buffer_size=10000,
             hidden_dim=256, critic_lr=3e-4, actor_lr=3e-4, actor_weight_decay=0., critic_weight_decay=0.
     ):
@@ -106,6 +108,7 @@ class TD3(object):
 
         self.action_dim = action_dim
         self.max_action = max_action
+        self.min_action = min_action
         self.t = 0
 
     def predict(self, state, with_noise=True):
@@ -113,8 +116,8 @@ class TD3(object):
         action = self.actor.get_action(state)
         if self.expl_noise and with_noise:
             action = (
-                      action + np.random.normal(0, self.max_action * self.expl_noise, size=self.action_dim)
-            ).clip(-self.max_action, self.max_action)
+                      action + np.random.normal(0, (self.max_action - self.min_action) / 2 * self.expl_noise, size=self.action_dim)
+            ).clip(-self.min_action, self.max_action)
         self.actor.train()
         return action
 
@@ -122,7 +125,7 @@ class TD3(object):
         # Select action according to policy and add clipped noise
         next_action = self.actor_target(next_state)
         noise = (torch.randn_like(next_action) * self.policy_noise).clamp(-self.noise_clip, self.noise_clip)
-        next_action = (next_action + noise).clamp(-self.max_action, self.max_action)
+        next_action = (next_action + noise).clamp(self.min_action, self.max_action)
         return next_action
 
     def update(self):
