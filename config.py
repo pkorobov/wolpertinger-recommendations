@@ -3,6 +3,7 @@ import json
 import pickle
 import platform
 from pathlib import Path
+from itertools import product
 
 ENV_PARAMETERS = None
 AGENT_PARAMETERS = None
@@ -16,8 +17,6 @@ EMBEDDINGS = None
 PATH = Path("/Users" if platform.system() == 'Darwin' else "/home") / "p.korobov/data/netflix/matrix_env"
 OPTIMAL_ACTIONS = None
 OPTIMAL_PROBAS = None
-MAX_ACTION = None
-MIN_ACTION = None
 
 
 def init_config(param_path='parameters.json'):
@@ -49,24 +48,34 @@ def init_config(param_path='parameters.json'):
     DOC_NUM = ENV_PARAMETERS['doc_num']
     W = np.zeros((DOC_NUM, DOC_NUM))
 
-    with open(PATH / "embeddings_dict.pkl", "rb") as pickle_in:
-        emb_dict = pickle.load(pickle_in)
-        EMBEDDINGS = np.array([*map(lambda ind: emb_dict[ind], np.arange(len(emb_dict)))])
-        EMBEDDINGS = EMBEDDINGS[:DOC_NUM]
-        MAX_ACTION = EMBEDDINGS.max(axis=0)
-        MIN_ACTION = EMBEDDINGS.min(axis=0)
+    if ENV_PARAMETERS['type'] == 'movies':
+        with open(PATH / "embeddings_dict.pkl", "rb") as pickle_in:
+            emb_dict = pickle.load(pickle_in)
+            EMBEDDINGS = np.array([*map(lambda ind: emb_dict[ind], np.arange(len(emb_dict)))])
+            EMBEDDINGS = EMBEDDINGS[:DOC_NUM]
 
+    if ENV_PARAMETERS['type'] == 'movies_uniform_embeddings':
+        DOC_NUM = 100
+        d = 4
+        axis = np.linspace(0, 1, np.power(DOC_NUM, 1 / d).astype(int) + 1)
+        EMBEDDINGS = np.array(list(product(*([axis] * d))))
+        idx = sorted(np.random.choice(EMBEDDINGS.shape[0], size=DOC_NUM))
+        EMBEDDINGS = EMBEDDINGS[idx, :]
+
+    if ENV_PARAMETERS['type'] == 'movies_random_embeddings':
+        EMBEDDINGS = np.random.uniform(DOC_NUM, 4)
 
 def init_w():
     global W, EMBEDDINGS, OPTIMAL_ACTIONS, OPTIMAL_PROBAS
 
     if ENV_PARAMETERS['type'] == 'movies':
-        with open(PATH / "W_matrix_contrasted_100.pkl", "rb") as pickle_in:
+        with open(PATH / "W_matrix.pkl", "rb") as pickle_in:
             W = pickle.load(pickle_in)
             W = W[:DOC_NUM, :DOC_NUM]
             OPTIMAL_ACTIONS = W.argmax(axis=0)
             OPTIMAL_PROBAS = W.max(axis=0)
-        # with open(PATH / "embeddings_dict.pkl", "rb") as pickle_in:
+
+    # with open(PATH / "embeddings_dict.pkl", "rb") as pickle_in:
         #     emb_dict = pickle.load(pickle_in)
         #     EMBEDDINGS = np.array([*map(lambda ind: emb_dict[ind], np.arange(len(emb_dict)))])
         #     EMBEDDINGS = EMBEDDINGS[:DOC_NUM]
