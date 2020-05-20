@@ -42,6 +42,9 @@ def create_wolpertinger(backbone=DDPG):
             self.k = max(1, int(n * k_ratio))
             self.backbone = backbone
 
+            D, _ = self.index.search(self.embeddings, 2)
+            self.nn_distances = D[:, 1]
+
         def predict(self, state):
 
             proto_action = super().predict(state)
@@ -76,42 +79,4 @@ def create_wolpertinger(backbone=DDPG):
             q_values = self.critic_target(next_state_tiled, proto_action_neighbours).squeeze()
             next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1).cpu().detach()]).to(device)
             return next_action
-
-        def update(self):
-            if len(self.replay_buffer) < self.batch_size:
-                return
-            state, action, next_state, reward, done = self.replay_buffer.sample(self.batch_size)
-
-            current_q = self.critic(state, action)
-            target_q = self.critic_target(next_state, self.target_action(next_state))
-            target_q = reward + ((1.0 - done) * self.gamma * target_q).detach()
-            critic_loss = F.mse_loss(current_q, target_q)
-
-            self.critic_optimizer.zero_grad()
-            critic_loss.backward()
-            self.critic_optimizer.step()
-
-            actor_loss = self.critic(state, self.actor(state))
-            actor_loss = -actor_loss.mean()
-            # actor_loss = -actor_loss.mean() + 0.1 * (self.actor(state) - torch.tensor((self.max_action + self.min_action) / 2, device=device, dtype=torch.float32)).pow(2).mean()
-
-            self.actor_optimizer.zero_grad()
-            actor_loss.backward()
-            self.actor_optimizer.step()
-
-            if self.summary_writer:
-                grad_actor = torch.cat([p.grad.flatten() for p in self.actor.parameters()])
-                grad_critic = torch.cat([p.grad.flatten() for p in self.critic.parameters()])
-
-                self.summary_writer.add_scalar('loss/Actor_loss', actor_loss, self.t)
-                self.summary_writer.add_scalar('loss/Critic_loss', critic_loss, self.t)
-                self.summary_writer.add_scalar('extra/Actor_gradient_norm', grad_actor.norm(), self.t)
-                self.summary_writer.add_scalar('extra/Critic_gradient_norm', grad_critic.norm(), self.t)
-
-            soft_update(self.critic_target, self.critic, self.tau)
-            soft_update(self.actor_target, self.actor, self.tau)
-
-        def print_base(self):
-            for base in self.__class__.__bases__:
-                print(base.__name__)
     return Wolpertinger

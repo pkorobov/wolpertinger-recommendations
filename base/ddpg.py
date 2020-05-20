@@ -68,8 +68,8 @@ class Critic(nn.Module):
 
         # it seems better to have tanh activations and no special initialization
         self.head = nn.Linear(hidden_size, 1)
-        nn.init.uniform_(self.head.weight, -init_w, init_w)
-        nn.init.zeros_(self.head.bias)
+        # nn.init.uniform_(self.head.weight, -init_w, init_w)
+        # nn.init.zeros_(self.head.bias)
 
     def forward(self, state, action):
         x = torch.cat([state, action], -1)
@@ -145,7 +145,6 @@ class DDPG:
 
         actor_loss = self.critic(state, self.actor(state))
         actor_loss = -actor_loss.mean()
-        # actor_loss = -actor_loss.mean() + 0.1 * (self.actor(state) - torch.tensor((self.max_action + self.min_action) / 2, device=device, dtype=torch.float32)).pow(2).mean()
 
         self.actor_optimizer.zero_grad()
         actor_loss.backward()

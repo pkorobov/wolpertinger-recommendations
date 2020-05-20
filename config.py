@@ -55,6 +55,7 @@ def init_config(param_path='parameters.json'):
             EMBEDDINGS = EMBEDDINGS[:DOC_NUM]
 
     if ENV_PARAMETERS['type'] == 'movies_uniform_embeddings':
+        np.random.seed(0)
         DOC_NUM = 100
         d = 4
         axis = np.linspace(0, 1, np.power(DOC_NUM, 1 / d).astype(int) + 1)
@@ -63,17 +64,18 @@ def init_config(param_path='parameters.json'):
         EMBEDDINGS = EMBEDDINGS[idx, :]
 
     if ENV_PARAMETERS['type'] == 'movies_random_embeddings':
+        np.random.seed(0)
         EMBEDDINGS = np.random.uniform(DOC_NUM, 4)
+
 
 def init_w():
     global W, EMBEDDINGS, OPTIMAL_ACTIONS, OPTIMAL_PROBAS
 
-    if ENV_PARAMETERS['type'] == 'movies':
-        with open(PATH / "W_matrix.pkl", "rb") as pickle_in:
-            W = pickle.load(pickle_in)
-            W = W[:DOC_NUM, :DOC_NUM]
-            OPTIMAL_ACTIONS = W.argmax(axis=0)
-            OPTIMAL_PROBAS = W.max(axis=0)
+    with open(PATH / "W_matrix.pkl", "rb") as pickle_in:
+        W = pickle.load(pickle_in)
+        W = W[:DOC_NUM, :DOC_NUM]
+        OPTIMAL_ACTIONS = W.argmax(axis=0)
+        OPTIMAL_PROBAS = W.max(axis=0)
 
     # with open(PATH / "embeddings_dict.pkl", "rb") as pickle_in:
         #     emb_dict = pickle.load(pickle_in)
