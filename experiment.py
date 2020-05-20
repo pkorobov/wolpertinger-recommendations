@@ -20,7 +20,6 @@ import multiprocessing as mp
 from functools import partial
 from base.ddpg import DDPG
 from base.td3 import TD3
-from base.sac import SAC
 import gym
 import plots
 import plotly.graph_objects as go
@@ -197,7 +196,6 @@ def main():
             if "k_ratio" in parameters:
                 k_ratio = parameters.pop("k_ratio")
             create_function = partial(create_wolp_agent, k_ratio=k_ratio, state_dim=dim, action_dim=dim,
-                                      max_action=c.MAX_ACTION, min_action=c.MIN_ACTION,
                                       embeddings=c.EMBEDDINGS, **parameters)
             agents.append(
                     (wolpertinger_name(c.DOC_NUM, k_ratio, param_string),

@@ -4,6 +4,7 @@ from base.ddpg import DDPG
 from gym import spaces
 import config as c
 
+
 class OptimalAgent(AbstractEpisodicRecommenderAgent):
 
     def __init__(self, env):

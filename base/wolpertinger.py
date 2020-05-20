@@ -1,5 +1,4 @@
 from .ddpg import DDPG
-from .sac import SAC
 from .td3 import TD3
 import matrix_env
 import config
@@ -10,6 +9,7 @@ import numpy as np
 import faiss
 import torch
 import numpy as np
+from .utils import ReplayBuffer, soft_update
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -21,6 +21,8 @@ def create_wolpertinger(backbone=DDPG):
 
             super(Wolpertinger, self).__init__(state_dim, action_dim,
                                                batch_size=batch_size, gamma=gamma,
+                                               min_action=embeddings.min(axis=0),
+                                               max_action=embeddings.max(axis=0),
                                                **kwargs)
 
             self.training_starts = training_starts
@@ -30,7 +32,6 @@ def create_wolpertinger(backbone=DDPG):
 
             n, d = embeddings.shape
             self.embeddings = embeddings
-
             self.index = faiss.IndexFlatL2(d)
 
             if torch.cuda.is_available():
@@ -66,32 +67,49 @@ def create_wolpertinger(backbone=DDPG):
             return self.critic_target.get_q_values(s, a)
 
         def target_action(self, next_state):
-            if self.backbone == SAC:
-                next_action, next_state_log_pi, _ = super().target_action(next_state)
-            else:
-                next_action = super().target_action(next_state)
+            next_action = super().target_action(next_state)
             I = self.index.search(next_action.cpu().detach().numpy(), self.k)[1]
             proto_action_neighbours = self.embeddings[I]
             proto_action_neighbours = torch.from_numpy(proto_action_neighbours).to(device)
             next_state_tiled = next_state.unsqueeze(1).repeat(1, self.k, 1)
 
-            if self.backbone == TD3:
-                q_values = self.critic_target.Q1(next_state_tiled, proto_action_neighbours).squeeze()
-                next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1).cpu().detach()]).to(device)
-                noise = (
-                        torch.randn_like(next_action) * self.policy_noise
-                ).clamp(-self.noise_clip, self.noise_clip)
-                next_action = (next_action + noise).clamp(-self.max_action, self.max_action)
-
-            if self.backbone == DDPG:
-                q_values = self.critic_target(next_state_tiled, proto_action_neighbours).squeeze()
-                next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1).cpu().detach()]).to(device)
-
-            if self.backbone == SAC:
-                q_values = torch.min(*self.critic_target(next_state_tiled, proto_action_neighbours)).squeeze()
-                next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1)])
-                return next_action, next_state_log_pi, _
+            q_values = self.critic_target(next_state_tiled, proto_action_neighbours).squeeze()
+            next_action = torch.from_numpy(self.embeddings[q_values.argmax(dim=-1).cpu().detach()]).to(device)
             return next_action
+
+        def update(self):
+            if len(self.replay_buffer) < self.batch_size:
+                return
+            state, action, next_state, reward, done = self.replay_buffer.sample(self.batch_size)
+
+            current_q = self.critic(state, action)
+            target_q = self.critic_target(next_state, self.target_action(next_state))
+            target_q = reward + ((1.0 - done) * self.gamma * target_q).detach()
+            critic_loss = F.mse_loss(current_q, target_q)
+
+            self.critic_optimizer.zero_grad()
+            critic_loss.backward()
+            self.critic_optimizer.step()
+
+            actor_loss = self.critic(state, self.actor(state))
+            actor_loss = -actor_loss.mean()
+            # actor_loss = -actor_loss.mean() + 0.1 * (self.actor(state) - torch.tensor((self.max_action + self.min_action) / 2, device=device, dtype=torch.float32)).pow(2).mean()
+
+            self.actor_optimizer.zero_grad()
+            actor_loss.backward()
+            self.actor_optimizer.step()
+
+            if self.summary_writer:
+                grad_actor = torch.cat([p.grad.flatten() for p in self.actor.parameters()])
+                grad_critic = torch.cat([p.grad.flatten() for p in self.critic.parameters()])
+
+                self.summary_writer.add_scalar('loss/Actor_loss', actor_loss, self.t)
+                self.summary_writer.add_scalar('loss/Critic_loss', critic_loss, self.t)
+                self.summary_writer.add_scalar('extra/Actor_gradient_norm', grad_actor.norm(), self.t)
+                self.summary_writer.add_scalar('extra/Critic_gradient_norm', grad_critic.norm(), self.t)
+
+            soft_update(self.critic_target, self.critic, self.tau)
+            soft_update(self.actor_target, self.actor, self.tau)
 
         def print_base(self):
             for base in self.__class__.__bases__:

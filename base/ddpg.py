@@ -28,7 +28,7 @@ class GaussNoise:
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_size, max_action=1, min_action=-1, init_w=3e-3):
+    def __init__(self, state_dim, action_dim, hidden_size, min_action=-1, max_action=1, init_w=3e-3):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(state_dim, hidden_size),
@@ -65,6 +65,8 @@ class Critic(nn.Module):
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
         )
+
+        # it seems better to have tanh activations and no special initialization
         self.head = nn.Linear(hidden_size, 1)
         nn.init.uniform_(self.head.weight, -init_w, init_w)
         nn.init.zeros_(self.head.bias)
@@ -91,7 +93,7 @@ class DDPG:
                  max_action=1, min_action=-1
     ):
 
-        self.actor = Actor(state_dim, action_dim, hidden_dim, max_action, min_action, init_w=init_w_actor).to(device)
+        self.actor = Actor(state_dim, action_dim, hidden_dim, min_action, max_action, init_w=init_w_actor).to(device)
         self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = optim.Adam(self.actor.parameters(),
                                           lr=actor_lr,
@@ -143,6 +145,7 @@ class DDPG:
 
         actor_loss = self.critic(state, self.actor(state))
         actor_loss = -actor_loss.mean()
+        # actor_loss = -actor_loss.mean() + 0.1 * (self.actor(state) - torch.tensor((self.max_action + self.min_action) / 2, device=device, dtype=torch.float32)).pow(2).mean()
 
         self.actor_optimizer.zero_grad()
         actor_loss.backward()

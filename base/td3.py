@@ -13,7 +13,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Actor(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_dim, max_action=1, min_action=-1):
+    def __init__(self, state_dim, action_dim, hidden_dim, min_action=-1, max_action=1):
         super(Actor, self).__init__()
 
         self.l1 = nn.Linear(state_dim, hidden_dim)
@@ -80,11 +80,11 @@ class Critic(nn.Module):
 
 class TD3(object):
     def __init__(
-            self, state_dim, action_dim, summary_writer=None, max_action=1, min_action=-1, gamma=0.99, batch_size=128,
+            self, state_dim, action_dim, summary_writer=None, min_action=-1, max_action=1, gamma=0.99, batch_size=128,
             tau=0.005, policy_noise=0.2, expl_noise=0.1, noise_clip=0.5, policy_freq=2, buffer_size=10000,
             hidden_dim=256, critic_lr=3e-4, actor_lr=3e-4, actor_weight_decay=0., critic_weight_decay=0.
     ):
-        self.actor = Actor(state_dim, action_dim, hidden_dim, max_action).to(device)
+        self.actor = Actor(state_dim, action_dim, hidden_dim, min_action, max_action).to(device)
         self.actor_target = copy.deepcopy(self.actor)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters(),
                                                 lr=actor_lr,
