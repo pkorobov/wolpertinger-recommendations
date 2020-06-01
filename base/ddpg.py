@@ -65,8 +65,6 @@ class Critic(nn.Module):
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
         )
-
-        # it seems better to have tanh activations and no special initialization
         self.head = nn.Linear(hidden_size, 1)
         # nn.init.uniform_(self.head.weight, -init_w, init_w)
         # nn.init.zeros_(self.head.bias)

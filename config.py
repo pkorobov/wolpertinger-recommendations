@@ -32,7 +32,7 @@ def init_config(param_path='parameters.json'):
     AGENT_PARAMETERS = all_parameters['agent']
 
     def generate_param_strings(agent_params):
-        params_to_display = ['backbone', 'lr', 'critic_lr', 'actor_lr',
+        params_to_display = ['lr', 'critic_lr', 'actor_lr',
                              'actor_weight_decay', 'critic_weight_decay', 'eps']
 
         param_string = [""] * len(agent_params)

@@ -15,15 +15,21 @@ class ReplayBuffer(object):
 
 		self.state = np.zeros((max_size, state_dim))
 		self.action = np.zeros((max_size, action_dim))
+		self.proto_action = np.zeros((max_size, action_dim))
+		self.nearest_action = np.zeros((max_size, action_dim))
+		self.nn_distance = np.zeros((max_size, 1))
 		self.next_state = np.zeros((max_size, state_dim))
 		self.reward = np.zeros((max_size, 1))
 		self.done = np.zeros((max_size, 1))
 
 		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	def add(self, state, action, next_state, reward, done):
+	def add(self, state, action, proto_action, nearest_action, nn_distance, next_state, reward, done):
 		self.state[self.ptr] = state
 		self.action[self.ptr] = action
+		self.proto_action[self.ptr] = proto_action
+		self.nearest_action[self.ptr] = nearest_action
+		self.nn_distance[self.ptr] = nn_distance
 		self.next_state[self.ptr] = next_state
 		self.reward[self.ptr] = reward
 		self.done[self.ptr] = done
@@ -35,11 +41,14 @@ class ReplayBuffer(object):
 		ind = np.random.randint(0, self.size, size=batch_size)
 
 		return (
-			torch.FloatTensor(self.state[ind]).to(self.device),
-			torch.FloatTensor(self.action[ind]).to(self.device),
-			torch.FloatTensor(self.next_state[ind]).to(self.device),
-			torch.FloatTensor(self.reward[ind]).to(self.device),
-			torch.FloatTensor(self.done[ind]).to(self.device)
+			torch.tensor(self.state[ind], dtype=torch.float32, device=self.device),
+			torch.tensor(self.action[ind], dtype=torch.float32, device=self.device),
+			torch.tensor(self.proto_action[ind], dtype=torch.float32, device=self.device),
+			torch.tensor(self.nearest_action[ind], dtype=torch.float32, device=self.device),
+			torch.tensor(self.nn_distance[ind], dtype=torch.float32, device=self.device),
+			torch.tensor(self.next_state[ind], dtype=torch.float32, device=self.device),
+			torch.tensor(self.reward[ind], dtype=torch.float32, device=self.device),
+			torch.tensor(self.done[ind], dtype=torch.float32, device=self.device)
 		)
 
 	def __len__(self):

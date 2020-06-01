@@ -24,8 +24,8 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
 
         self.observation_space = env.observation_space
 
-        self._agent = create_wolpertinger(backbone)(state_dim, action_dim,
-                                                 env, k_ratio=k_ratio, **kwargs)
+        self._agent = Wolpertinger(state_dim, action_dim,
+                                   env, k_ratio=k_ratio, **kwargs)
         self._agent.t = 0
         self.current_episode = {}
         self.eval_mode = eval_mode
@@ -49,11 +49,17 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
            self._agent.t < self._agent.training_starts:
             index = np.random.randint(c.DOC_NUM)
             action = self._agent.embeddings[index]
+            proto_action = action
+            nn_distance = 0
+            nearest_action = action
         else:
-            action, index = self._agent.predict(state)
+            action, index, proto_action, nearest_action, nn_distance = self._agent.predict(state)
         self.current_episode = {
             "state": state,
             "action": action,
+            "proto_action": proto_action,
+            "nearest_action": nearest_action,
+            "nn_distance": nn_distance
         }
         return np.array([index])
 
