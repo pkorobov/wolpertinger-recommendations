@@ -92,8 +92,8 @@ class Wolpertinger(DDPG):
         # current_q = self.critic(state, action + torch.randn_like(action) * nn_distance / 2)
         target_q = self.critic_target(next_state, self.target_action(next_state))
         target_q = reward + ((1.0 - done) * self.gamma * target_q).detach()
-        critic_loss = F.mse_loss(current_q, target_q) + \
-                      0.1 * F.mse_loss(self.critic(state, proto_action), self.critic(state, nearest_action).detach())  # proto
+        critic_loss = F.mse_loss(current_q, target_q) #+ \
+                      # 0.1 * F.mse_loss(self.critic(state, proto_action), self.critic(state, nearest_action).detach())  # proto
 
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
@@ -102,10 +102,9 @@ class Wolpertinger(DDPG):
         actor_loss = self.critic(state, self.actor(state))
         actor_loss = -actor_loss.mean()
 
-        if self.t % 5 == 0:
-            self.actor_optimizer.zero_grad()
-            actor_loss.backward()
-            self.actor_optimizer.step()
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        self.actor_optimizer.step()
 
         if self.summary_writer:
 

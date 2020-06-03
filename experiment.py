@@ -67,6 +67,7 @@ def run_agent(env, create_function, agent_name, base_dir,
               seed, max_total_steps, times_to_evaluate,
               eval_mode=False, display=False):
 
+    rewards = []
     log_df = pd.DataFrame(columns=['episode', 's', 'a', 'opt a', 'a_proba', 'opt_proba', 'reward'])
 
     eval_freq = max(max_total_steps // times_to_evaluate, 1)
@@ -111,6 +112,7 @@ def run_agent(env, create_function, agent_name, base_dir,
             a_proba = c.W[s, a].round(3)
             opt_proba = c.OPTIMAL_PROBAS[s].round(3)
             log_df.loc[step_number] = [episode_number, s, a, a_opt, a_proba, opt_proba, reward]
+            rewards.append(reward)
         episode_number += 1
 
         agent.end_episode(reward, observation)
@@ -126,7 +128,9 @@ def run_agent(env, create_function, agent_name, base_dir,
             heatmaps["q_values"].add_trace(go.Heatmap(z=q_values))
             heatmaps["q_values_target"].add_trace(go.Heatmap(z=q_values_target))
             heatmaps["policy"].add_trace(go.Heatmap(z=actions))
-            agent._agent.save(str(base_dir / agent_name / f"run_{seed}/parameters_{step_number // eval_q_table_freq}"))
+
+            os.makedirs(str(base_dir / agent_name / f"run_{seed}/parameters"), exist_ok=True)
+            agent._agent.save(str(base_dir / agent_name / f"run_{seed}/parameters/{step_number // eval_q_table_freq}"))
             log_df.to_csv(base_dir / agent_name / f"run_{seed}/steps.csv")
 
         if step_number // eval_freq != (step_number - episode_len) // eval_freq:
@@ -142,6 +146,7 @@ def run_agent(env, create_function, agent_name, base_dir,
             plots.plotly_heatmap(fig, base_dir / agent_name / f"run_{seed}/{key}.html")
         agent._agent.save(str(base_dir / agent_name / f"run_{seed}/parameters"))
 
+    np.save(base_dir / agent_name / f"run_{seed}/rewards.npy", np.array(rewards))
     log_df.to_csv(base_dir / agent_name / f"run_{seed}/steps.csv")
     summary_writer.close()
 
@@ -160,6 +165,7 @@ def main():
     parser.add_argument('--logdir', default='logs')
     parser.add_argument('--rmdir', type=bool, default=False)
     parser.add_argument('--display', type=bool, default=False)
+    parser.add_argument('--output_path', type=str, default=None)
 
     args = parser.parse_args()
     c.init_config(args.parameters)
