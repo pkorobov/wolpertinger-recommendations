@@ -1,10 +1,7 @@
-import shutil
 import torch
 from recsim.simulator import recsim_gym, environment
-from plots import plot_averaged_runs
 from tensorboardX import SummaryWriter
 import os
-from datetime import datetime
 import random
 import argparse
 import config as c
@@ -12,26 +9,15 @@ import matrix_env as me
 from agent import WolpertingerRecSim, OptimalAgent
 from recsim.agents.random_agent import RandomAgent
 import numpy as np
-import itertools
 from pathlib import Path
-import logging
-from tqdm import tqdm
-import multiprocessing as mp
 from functools import partial
-import gym
 import plots
 import plotly.graph_objects as go
-import plotly
 import pandas as pd
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-
-
-def setup_logging():
-    logging.basicConfig(format='[%(asctime)s] %(levelname)s %(message)s', level=logging.INFO, datefmt='%I:%M:%S')
-    logging.getLogger().setLevel(logging.INFO)
 
 
 def create_random_agent(sess, env, **kwargs):
@@ -45,14 +31,6 @@ def create_optimal_agent(sess, env, **kwargs):
 def create_wolp_agent(sess, env, eval_mode, k_ratio=0.1, summary_writer=None, **kwargs):
     return WolpertingerRecSim(env, k_ratio=k_ratio, summary_writer=summary_writer,
                               eval_mode=eval_mode, **kwargs)
-
-
-def cleanup_dir(dir_path):
-    if os.path.exists(dir_path) and os.path.isdir(dir_path):
-        print("Cleaning up {}".format(dir_path))
-        shutil.rmtree(dir_path)
-    os.makedirs(dir_path)
-    return dir_path
 
 
 def fix_seed(seed):
@@ -73,7 +51,7 @@ def run_agent(env, create_function, agent_name, base_dir,
     eval_freq = max(max_total_steps // times_to_evaluate, 1)
     eval_q_table_freq = max(max_total_steps // 10, 1)
 
-    summary_writer = SummaryWriter(base_dir / f"{agent_name}/run_{seed}/train")
+    summary_writer = SummaryWriter(base_dir / f"{agent_name}" / f"run_{seed}/train")
     fix_seed(seed)
     c.init_w()
 
@@ -101,6 +79,8 @@ def run_agent(env, create_function, agent_name, base_dir,
             step_number += 1
             episode_len += 1
             episode_reward += reward
+            rewards.append(reward)
+
             if done:
                 break
             else:
@@ -112,7 +92,6 @@ def run_agent(env, create_function, agent_name, base_dir,
             a_proba = c.W[s, a].round(3)
             opt_proba = c.OPTIMAL_PROBAS[s].round(3)
             log_df.loc[step_number] = [episode_number, s, a, a_opt, a_proba, opt_proba, reward]
-            rewards.append(reward)
         episode_number += 1
 
         agent.end_episode(reward, observation)
@@ -120,9 +99,9 @@ def run_agent(env, create_function, agent_name, base_dir,
         episodes_to_avg += 1
 
         if type(agent) == WolpertingerRecSim and step_number // eval_q_table_freq != (step_number - episode_len) // eval_q_table_freq:
-            q_values = np.hstack([agent._agent.compute_q_values(i) for i in range(c.DOC_NUM)]).T
-            q_values_target = np.hstack([agent._agent.compute_q_values(i, target=True) for i in range(c.DOC_NUM)]).T
-            actions = np.vstack([agent._agent
+            q_values = np.hstack([agent.core_agent.compute_q_values(i) for i in range(c.DOC_NUM)]).T
+            q_values_target = np.hstack([agent.core_agent.compute_q_values(i, target=True) for i in range(c.DOC_NUM)]).T
+            actions = np.vstack([agent.core_agent
                                  .proto_action(c.EMBEDDINGS[i], with_noise=False)
                                  for i in range(c.DOC_NUM)])
             heatmaps["q_values"].add_trace(go.Heatmap(z=q_values))
@@ -130,7 +109,7 @@ def run_agent(env, create_function, agent_name, base_dir,
             heatmaps["policy"].add_trace(go.Heatmap(z=actions))
 
             os.makedirs(str(base_dir / agent_name / f"run_{seed}/parameters"), exist_ok=True)
-            agent._agent.save(str(base_dir / agent_name / f"run_{seed}/parameters/{step_number // eval_q_table_freq}"))
+            agent.core_agent.save(str(base_dir / agent_name / f"run_{seed}/parameters/{step_number // eval_q_table_freq}"))
             log_df.to_csv(base_dir / agent_name / f"run_{seed}/steps.csv")
 
         if step_number // eval_freq != (step_number - episode_len) // eval_freq:
@@ -144,7 +123,7 @@ def run_agent(env, create_function, agent_name, base_dir,
         heatmaps["W"].add_trace(go.Heatmap(z=c.W))
         for key, fig in heatmaps.items():
             plots.plotly_heatmap(fig, base_dir / agent_name / f"run_{seed}/{key}.html")
-        agent._agent.save(str(base_dir / agent_name / f"run_{seed}/parameters"))
+        agent.core_agent.save(str(base_dir / agent_name / f"run_{seed}/parameters"))
 
     np.save(base_dir / agent_name / f"run_{seed}/rewards.npy", np.array(rewards))
     log_df.to_csv(base_dir / agent_name / f"run_{seed}/steps.csv")
@@ -152,25 +131,21 @@ def run_agent(env, create_function, agent_name, base_dir,
 
 
 def main():
-    """
-    See results with to compare different agents
-      tensorboard --logdir logs --samples_per_plugin "images=100"
-    """
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--parameters', default='parameters.json')
-    parser.add_argument('--runs', type=int, default=5)
     parser.add_argument('--total_steps', type=int, default=10**5)
     parser.add_argument('--times_to_evaluate', type=int, default=1000)
     parser.add_argument('--logdir', default='logs')
     parser.add_argument('--rmdir', type=bool, default=False)
     parser.add_argument('--display', type=bool, default=False)
     parser.add_argument('--output_path', type=str, default=None)
+    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--agent', type=str, default='Wolpertinger')
+    parser.add_argument('--param_string', type=str, default="")
 
     args = parser.parse_args()
     c.init_config(args.parameters)
-
-    setup_logging()
 
     env = recsim_gym.RecSimGymEnv(
         environment.SingleUserEnvironment(
@@ -180,47 +155,30 @@ def main():
     )
 
     base_dir = Path(args.logdir) / c.ENV_PARAMETERS['type']
-    if args.rmdir:
-        cleanup_dir(base_dir)
 
     def wolpertinger_name(actions, k_ratio, param_string):
         k = max(1, int(actions * k_ratio))
-        return "Wolpertinger {}NN ({})".format(k, param_string)
+        return f"Wolpertinger {k}NN" + (f" ({param_string})" if param_string else "")
 
-
-    agents = []
     dim = c.EMBEDDINGS.shape[1]
-    for parameters, param_string in zip(c.AGENT_PARAMETERS, c.AGENT_PARAM_STRINGS):
+    agent_name = args.agent
+    if agent_name == "Wolpertinger":
+        k_ratio = 0.0
+        if "k_ratio" in c.AGENT_PARAMETERS:
+            k_ratio = c.AGENT_PARAMETERS.pop("k_ratio")
+        create_function = partial(create_wolp_agent, k_ratio=k_ratio, state_dim=dim, action_dim=dim,
+                                  embeddings=c.EMBEDDINGS, **c.AGENT_PARAMETERS)
+        agent_name = wolpertinger_name(c.DOC_NUM, k_ratio, args.param_string)
 
-        agent = parameters.pop("agent")
-        if agent == 'Wolpertinger':
-            k_ratio = 0.0
-            if "k_ratio" in parameters:
-                k_ratio = parameters.pop("k_ratio")
-            create_function = partial(create_wolp_agent, k_ratio=k_ratio, state_dim=dim, action_dim=dim,
-                                      embeddings=c.EMBEDDINGS, **parameters)
-            agents.append(
-                    (wolpertinger_name(c.DOC_NUM, k_ratio, param_string),
-                     create_function)
-            )
+    elif agent_name == "Random":
+        create_function = create_random_agent
 
-        if agent == 'Random':
-            agents.append(("Random", create_random_agent))
+    else:
+        create_function = create_optimal_agent
 
-        if agent == 'Optimal':
-            agents.append(("Optimal", create_optimal_agent))
-
-    for agent_number, (agent_name, create_function) in enumerate(agents):
-        logging.info(f"Running agent #{agent_number + 1} of {len(agents)}...")
-
-        for run in range(args.runs):
-            logging.info(f"RUN #{run + 1} of {args.runs} ({agent_name})")
-            run_agent(env, create_function, agent_name, base_dir, run,
-                      args.total_steps, args.times_to_evaluate,
-                      eval_mode=False, display=args.display)
-
-    logging.disable()
-    plot_averaged_runs(str(base_dir), ylimits=[0, 12], smoothing=False)
+    run_agent(env, create_function, agent_name, base_dir, args.seed,
+              args.total_steps, args.times_to_evaluate,
+              eval_mode=False, display=args.display)
 
 
 if __name__ == "__main__":

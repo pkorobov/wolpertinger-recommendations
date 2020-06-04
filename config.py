@@ -12,7 +12,6 @@ MAX_TOTAL_STEPS = None
 W = None
 MOST_POPULAR = None
 REINIT_STEPS = None
-AGENT_PARAM_STRINGS = None
 EMBEDDINGS = None
 PATH = Path("/Users" if platform.system() == 'Darwin' else "/home") / "p.korobov/data/netflix/matrix_env"
 OPTIMAL_ACTIONS = None
@@ -30,21 +29,6 @@ def init_config(param_path='parameters.json'):
 
     ENV_PARAMETERS = all_parameters['env']
     AGENT_PARAMETERS = all_parameters['agent']
-
-    def generate_param_strings(agent_params):
-        params_to_display = ['lr', 'critic_lr', 'actor_lr',
-                             'actor_weight_decay', 'critic_weight_decay', 'eps']
-
-        param_string = [""] * len(agent_params)
-        for i, params_dict in enumerate(agent_params):
-            for parameter_name in params_to_display:
-                if parameter_name in params_dict:
-                    param_string[i] += f"{parameter_name}={params_dict[parameter_name]}, "
-            param_string[i] = param_string[i][:-2]
-        return param_string
-
-    AGENT_PARAM_STRINGS = generate_param_strings(AGENT_PARAMETERS)
-
     DOC_NUM = ENV_PARAMETERS['doc_num']
     W = np.zeros((DOC_NUM, DOC_NUM))
 
