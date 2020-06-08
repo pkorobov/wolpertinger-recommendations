@@ -1,42 +1,20 @@
 {
-  "agent": [
-         {
-            "agent": "Optimal"
-         },
-
-         {
-            "agent": "Random"
-         },
-
-        {
-          "agent": "Wolpertinger",
-          "backbone": "SAC",
-          "k_ratio": 0.1,
-          "lr": 3e-4,
-          "tau": 1e-3,
-          "hidden_dim": 256,
-          "batch_size": 128,
-          "buffer_size": 50000,
-          "gamma": 0.8
-        },
-
-        {
-          "agent": "Wolpertinger",
-          "backbone": "TD3",
-          "k_ratio": 0.1,
-          "expl_noise": 0.1,
-          "critic_lr": 1e-3,
-          "actor_lr": 1e-4,
-          "tau": 1e-4,
-          "hidden_dim": 256,
-          "batch_size": 128,
-          "buffer_size": 50000,
-          "gamma": 0.8,
-          "actor_weight_decay": 1e-4,
-          "critic_weight_decay": 1e-3,
-          "eps": 1e-2
-        }
-  ],
+  "agent":
+          {
+            "k_ratio": 0.1,
+            "expl_noise": 0.0,
+            "critic_lr": 3e-4,
+            "actor_lr": 3e-4,
+            "tau": 1e-3,
+            "hidden_dim": 128,
+            "batch_size": 128,
+            "buffer_size": 10000000,
+            "gamma": 0.99,
+            "actor_weight_decay": 0.0,
+            "critic_weight_decay": 0.0,
+            "eps": 5e-2,
+            "training_starts": 300
+          },
   "env": {
     "type": "movies",
     "doc_num": 100

@@ -2,6 +2,7 @@
 .DS_Store
 wolpertinger/results
 wolpertinger/.DS_Store
+test_params.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -40,6 +41,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
 # IPython
 profile_default/

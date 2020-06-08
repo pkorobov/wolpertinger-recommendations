@@ -4,6 +4,7 @@ from base.ddpg import DDPG
 from gym import spaces
 import config as c
 
+
 class OptimalAgent(AbstractEpisodicRecommenderAgent):
 
     def __init__(self, env):
@@ -23,9 +24,9 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
 
         self.observation_space = env.observation_space
 
-        self._agent = create_wolpertinger(backbone)(state_dim, action_dim,
-                                                 env, k_ratio=k_ratio, **kwargs)
-        self._agent.t = 0
+        self.core_agent = Wolpertinger(state_dim, action_dim,
+                                   env, k_ratio=k_ratio, **kwargs)
+        self.core_agent.t = 0
         self.current_episode = {}
         self.eval_mode = eval_mode
 
@@ -36,7 +37,7 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
     def step(self, reward, observation):
         state = self._extract_state(observation)
         self._observe(state, reward, 0)
-        self._agent.t += 1
+        self.core_agent.t += 1
         return self._act(state)
 
     def end_episode(self, reward, observation=None):
@@ -44,15 +45,21 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
         self._observe(state, reward, 1)
 
     def _act(self, state):
-        if np.random.rand() < self._agent.eps or \
-           self._agent.t < self._agent.training_starts:
+        if np.random.rand() < self.core_agent.eps or \
+           self.core_agent.t < self.core_agent.training_starts:
             index = np.random.randint(c.DOC_NUM)
-            action = self._agent.embeddings[index]
+            action = self.core_agent.embeddings[index]
+            proto_action = action
+            nn_distance = 0
+            nearest_action = action
         else:
-            action, index = self._agent.predict(state)
+            action, index, proto_action, nearest_action, nn_distance = self.core_agent.predict(state)
         self.current_episode = {
             "state": state,
             "action": action,
+            "proto_action": proto_action,
+            "nearest_action": nearest_action,
+            "nn_distance": nn_distance
         }
         return np.array([index])
 
@@ -66,12 +73,13 @@ class WolpertingerRecSim(AbstractEpisodicRecommenderAgent):
             "done": done
         })
 
-        self._agent.episode = self.current_episode
+        self.core_agent.episode = self.current_episode
         if not self.eval_mode:
-            self._agent.replay_buffer.add(**self.current_episode)
-            if self._agent.t >= self._agent.training_starts and len(self._agent.replay_buffer) >= self._agent.batch_size:
-                self._agent.update()
+            self.core_agent.replay_buffer.add(**self.current_episode)
+            if self.core_agent.t >= self.core_agent.training_starts and len(self.core_agent.replay_buffer) \
+                    >= self.core_agent.batch_size:
+                self.core_agent.update()
         self.current_episode = {}
 
     def _extract_state(self, observation):
-        return self._agent.embeddings[observation['user'][0]]
+        return self.core_agent.embeddings[observation['user'][0]]
