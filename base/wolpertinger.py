@@ -19,7 +19,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class Wolpertinger(DDPG):
     def __init__(self, state_dim, action_dim, env, batch_size=128, gamma=0.99,
-                 k_ratio=0.1, training_starts=100, eps=1e-2, embeddings=None, **kwargs):
+                 k_ratio=0.1, training_starts=100, eps=1e-2, embeddings=None,
+                 neighbour_loss=False, **kwargs):
 
         super(Wolpertinger, self).__init__(state_dim, action_dim,
                                            batch_size=batch_size, gamma=gamma,
@@ -31,6 +32,7 @@ class Wolpertinger(DDPG):
         self.eps = eps
         self.episode = None
         self.last_proto = None
+        self.neighbour_loss = neighbour_loss
 
         n, d = embeddings.shape
         self.embeddings = embeddings
@@ -86,15 +88,17 @@ class Wolpertinger(DDPG):
     def update(self):
         if len(self.replay_buffer) < self.batch_size:
             return
-        state, action, proto_action, nearest_action, nn_distance, next_state, reward, done = self.replay_buffer.sample(self.batch_size)
+        state, action, proto_action, nearest_action, nn_distance, next_state, reward, done = \
+            self.replay_buffer.sample(self.batch_size)
 
         current_q = self.critic(state, action)
         # current_q = self.critic(state, action + torch.randn_like(action) * nn_distance / 2)
         target_q = self.critic_target(next_state, self.target_action(next_state))
         target_q = reward + ((1.0 - done) * self.gamma * target_q).detach()
-        critic_loss = F.mse_loss(current_q, target_q) #+ \
-                      # 0.1 * F.mse_loss(self.critic(state, proto_action), self.critic(state, nearest_action).detach())  # proto
+        critic_loss = F.mse_loss(current_q, target_q)
 
+        if self.neighbour_loss:
+            critic_loss += F.mse_loss(self.critic(state, proto_action), self.critic(state, nearest_action).detach())
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
