@@ -13,4 +13,4 @@
   <img src='course_work/pics/NN_loss.png' width='600'/> 
 </p>
 
-На основе этого проекта была выполнена моя [курсовая работа](https://github.com/pkorobov/wolpertinger-recommendations/blob/master/course_work/course_work.pdf).
+На основе этого проекта была выполнена моя [курсовая работа](https://github.com/pkorobov/wolpertinger-recommendations/blob/master/course_work/course_work.pdf), где подробно описан симулятор для агента и результаты экспериментов.
